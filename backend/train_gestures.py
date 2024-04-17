@@ -239,7 +239,7 @@ def batchLearning(
             aml.saveAtomizationOnFile(
                 batchLearner.lastReserve,
                 batchLearner.alg.cmanager,
-                f"{path_save_i}/sensors_{i}",
+                f"{path_save_i}/sensors_{i}_{os.getpid()}",
             )
 
         print(

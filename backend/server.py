@@ -105,8 +105,7 @@ class CustomModelListener(ModelListener):
 
 class CustomSolutionListener(SolutionListener):
 
-    def __init__(self, waiter):
-        self.waiter_ = waiter
+    def __init__(self):
         super().__init__()
 
     def solution_received(
@@ -120,7 +119,8 @@ class CustomSolutionListener(SolutionListener):
         else:
             solution_data.update(json.loads(solution.to_string()))
 
-        self.waiter_.increase()
+        global waiter
+        waiter.increase()
 
 ############################################################
 ########################### AML NODES ######################
@@ -159,9 +159,8 @@ model_receiver_node.start(
 ### AsynMainNode ###
 
 # Create node
-waiter = IntWaitHandler(True)
 print('Starting Async Main Node Py execution. Creating Node...')
-listener = CustomSolutionListener(waiter)
+listener = CustomSolutionListener()
 main_node = AsyncMainNode('PyTestAsyncMainNode', listener=listener, domain=DOMAIN_ID)
 
 
@@ -219,9 +218,8 @@ def add_model():
 def add_message(nJob, nIter, percentageData):
     print("Received")
 
+    global waiter
     waiter = IntWaitHandler(True)
-
-    n_jobs = 5
 
     content = request.json
 
@@ -239,6 +237,8 @@ def add_message(nJob, nIter, percentageData):
 
         # Calculate how many items x% is
         num_items = len(zipped_data) * percentage_data // 100
+
+        print(f'Number of items: {num_items}')
 
         # Take a random sample of x% of the data
         sampled_zipped_data = random.sample(zipped_data, num_items)
