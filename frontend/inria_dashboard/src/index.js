@@ -28,7 +28,6 @@ import {
 import '@tensorflow-models/hand-pose-detection';
 import * as handPoseDetection from '@tensorflow-models/hand-pose-detection';
 
-
 const model_hand = handPoseDetection.SupportedModels.MediaPipeHands;
 const detectorConfig = {
   runtime: 'tfjs', // or 'tfjs'
@@ -742,6 +741,100 @@ plotResultsAML.title = 'Results AML';
 
 
 // -----------------------------------------------------------
+// STATUS
+// -----------------------------------------------------------
+
+export const store2 = dataStore('localStorage');
+export const ts = dataset('aml-ip state', store2);
+
+export const tst = datasetTable(ts, [
+  'ID',
+  'State',
+  'Kind',
+]);
+
+await ts.setup();
+await ts.clear();
+
+const url_status = "http://localhost:5000/status";
+
+// Function to fetch the status
+function fetchStatus() {
+  fetch(url_status, {
+    method: "GET", // *GET, POST, PUT, DELETE, etc.
+    mode: "cors", // no-cors, *cors, same-origin
+    cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+    credentials: "omit", // include, *same-origin, omit
+    headers: {
+      "Content-Type": "application/json",
+    },
+    redirect: "follow", // manual, *follow, error
+    referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+  })
+  .then(response => response.json())
+  .then(async json => {
+
+  console.log(json);
+  console.log('STATUS RECEIVED');
+
+  async function updateInstances(ts) {
+    var instances = await ts
+      .items() // get iterable
+      .select(['_id', 'ID']) // select the fields toy return
+      .toArray(); // convert to array
+    return instances;
+  }
+
+  function isRepeated(instances, ID) {
+    for (var i in instances) {
+      if (ID == instances[i].ID) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function getId(instances, ID) {
+    for (var i in instances) {
+      if (ID == instances[i].ID) {
+        return instances[i].id;
+      }
+    }
+  }
+
+  function removeStatus(dataset, instances, ID) {
+    var local_id = getId(instances, ID);
+    dataset.remove(local_id);
+  }
+
+  var instances = await updateInstances(ts)
+
+  const nodes = json['nodes'];
+
+  for (var node in nodes) {
+
+    instances = await updateInstances(ts)
+
+    const id = json['nodes'][node].ID;
+
+    if (isRepeated(instances, id)) {
+      removeStatus(ts, instances, id);
+    }
+
+    ts.create(nodes[node]);
+
+    instances = await updateInstances(ts)
+
+  }
+
+  });
+
+}
+
+// Fetch the status every 5 seconds
+setInterval(fetchStatus, 1000); // 10000 milliseconds = 10 seconds
+
+// -----------------------------------------------------------
 // DASHBOARDS
 // -----------------------------------------------------------
 
@@ -759,7 +852,7 @@ dash.page('Uploading').sidebar(model_uploaded).use(b_upload_AML);
 dash.page('Fetching').sidebar(collaborative_status).use(search_statistics, statistics_received, request_model, model_received);
 dash.page('Batch Prediction').use( [predictButtonAML, confMatAML], [predictButton, confMat]);
 dash.page('Real-time Prediction').sidebar(togAML, togNN, input).use([plotResultsNN, plotResultsAML]);
-dash.page('Status')
-dash.settings.dataStores(store).datasets(trainingSet).models(classifier).predictions(batchMLP);
+dash.page('Status').use(tst);
+dash.settings.dataStores(store, store2).datasets(trainingSet).models(classifier).predictions(batchMLP);
 
 dash.show();

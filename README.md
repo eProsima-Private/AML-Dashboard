@@ -55,6 +55,26 @@
 
 	To stop a computing node, simply run `ctrl+C`.
 
+4.	**Run a Model Manager Sender Node**
+
+	4.1. Run the docker image
+
+	```bash
+	docker run --rm -it --net=host --ipc=host amlip
+	```
+
+	4.2. Load the AML-IP environment
+
+	```bash
+	source /AML-IP/install/setup.bash
+	```
+
+	4.3. Start the Model Manager Sender Node
+
+	```bash
+	python3 sender.py
+	```
+
 # Frontend Marcelle Framework
 
 1.	**Install dependencies**
@@ -70,6 +90,12 @@
 	```bash
 	npm -v
 	node -v
+	```
+
+	1.3. Install the dependencies
+
+	```bash
+	npm i
 	```
 
 2.	**Launch dashboard**

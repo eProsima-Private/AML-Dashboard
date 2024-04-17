@@ -16,7 +16,10 @@ from amlip_py.types.ModelReplyDataType import ModelReplyDataType
 from amlip_py.types.ModelRequestDataType import ModelRequestDataType
 from amlip_py.types.ModelStatisticsDataType import ModelStatisticsDataType
 from amlip_py.types.AmlipIdDataType import AmlipIdDataType
+from amlip_py.node.StatusNode import StatusListener, StatusNode
 
+status_data = {}
+status_data['nodes'] = []
 statistics_data = None
 model_data = None
 solution_data = None
@@ -30,6 +33,46 @@ DOMAIN_ID = 166
 ############################################################
 ########################### AML LISTENERS ##################
 ############################################################
+
+node_kind_map = {
+    0: 'undetermined',
+    1: 'discovery',
+    2: 'agent',
+    3: 'main',
+    4: 'computing',
+    5: 'status',
+    6: 'meta',
+    7: 'edge',
+    8: 'inference',
+    9: 'model_receiver',
+    10: 'model_sender'
+}
+
+state_map = {
+    0: 'unknown',
+    1: 'running',
+    2: 'stopped',
+    3: 'dropped'
+}
+
+
+class CustomStatusListener(StatusListener):
+
+    def __init__(self, node_id):
+        self.node_id_ = node_id
+        super().__init__()
+
+    def status_received(self, status):
+        print(f'Received {status} in Node {self.node_id_}.')
+
+        global status_data
+
+        data = {}
+        data['ID'] = status.id().to_string()
+        data['Kind'] = node_kind_map.get(status.node_kind())
+        data['State'] = state_map.get(status.state())
+
+        status_data['nodes'].append(data)
 
 class CustomModelListener(ModelListener):
 
@@ -83,6 +126,21 @@ class CustomSolutionListener(SolutionListener):
 ########################### AML NODES ######################
 ############################################################
 
+### StatusNode ###
+
+print('Starting Status Node Py execution. Creating Node...')
+status_node = StatusNode('PyTestCustomListenerStatusNode', domain=DOMAIN_ID)
+
+# Create lambda
+print(f'Node {status_node.get_id()} created. Creating Functor...')
+status_listener = CustomStatusListener(status_node.get_id())
+
+# Launch node
+print('Functor created. Processing data asynchronously...')
+status_node.process_status_async(listener=status_listener)
+
+### ModelManagerReceiverNode ###
+
 # Create request
 data = ModelRequestDataType('MobileNet V1')
 
@@ -98,15 +156,35 @@ model_receiver_node = ModelManagerReceiverNode(
 model_receiver_node.start(
         listener=CustomModelListener())
 
+### AsynMainNode ###
+
 # Create node
 waiter = IntWaitHandler(True)
 print('Starting Async Main Node Py execution. Creating Node...')
 listener = CustomSolutionListener(waiter)
 main_node = AsyncMainNode('PyTestAsyncMainNode', listener=listener, domain=DOMAIN_ID)
 
+
 ############################################################
 ########################### APPS ###########################
 ############################################################
+
+@app.route('/status', methods=['GET', 'POST'])
+def add_status():
+
+    global status_data
+
+    while status_data is None:
+        pass
+
+    print("Send status")
+
+    return_data = status_data
+    status_data = {}
+    status_data['nodes'] = []
+
+
+    return jsonify(return_data)
 
 @app.route('/fetcher/statistics', methods=['GET', 'POST'])
 def add_statistics():
@@ -140,6 +218,8 @@ def add_model():
 @app.route('/train/<nJob>/<nIter>/<percentageData>', methods=['GET', 'POST'])
 def add_message(nJob, nIter, percentageData):
     print("Received")
+
+    waiter = IntWaitHandler(True)
 
     n_jobs = 5
 
@@ -187,5 +267,7 @@ def add_message(nJob, nIter, percentageData):
 
     return jsonify(solution_data)
 
+
 if __name__ == "__main__":
-    app.run(host= '0.0.0.0', port=5000,  debug=True)
+
+    app.run(host= '0.0.0.0', port=5000)
