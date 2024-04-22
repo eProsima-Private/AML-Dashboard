@@ -30,10 +30,7 @@ CORS(app)
 # Domain ID
 DOMAIN_ID = 166
 
-############################################################
-########################### AML LISTENERS ##################
-############################################################
-
+# Maps
 node_kind_map = {
     0: 'undetermined',
     1: 'discovery',
@@ -55,7 +52,11 @@ state_map = {
     3: 'dropped'
 }
 
+############################################################
+########################### AML IP LISTENERS ###############
+############################################################
 
+# Custom status listener
 class CustomStatusListener(StatusListener):
 
     def __init__(self, node_id):
@@ -74,6 +75,7 @@ class CustomStatusListener(StatusListener):
 
         status_data['nodes'].append(data)
 
+# Custom statistics/model listener
 class CustomModelListener(ModelListener):
 
     def __init__(self):
@@ -103,6 +105,7 @@ class CustomModelListener(ModelListener):
 
         return True
 
+# Custom request listener
 class CustomSolutionListener(SolutionListener):
 
     def __init__(self):
@@ -123,11 +126,12 @@ class CustomSolutionListener(SolutionListener):
         waiter.increase()
 
 ############################################################
-########################### AML NODES ######################
+########################### AML IP NODES ###################
 ############################################################
 
 ### StatusNode ###
 
+# Create node
 print('Starting Status Node Py execution. Creating Node...')
 status_node = StatusNode('PyTestCustomListenerStatusNode', domain=DOMAIN_ID)
 
@@ -143,10 +147,10 @@ status_node.process_status_async(listener=status_listener)
 
 # Create request
 data = ModelRequestDataType('MobileNet V1')
-
+# Create ID
 id_receiver = AmlipIdDataType('ModelManagerReceiver')
 
-# Create nodes
+# Create node
 print('Starting Model Manager Receiver Node Py execution. Creating Node...')
 model_receiver_node = ModelManagerReceiverNode(
     id=id_receiver,
@@ -165,7 +169,7 @@ main_node = AsyncMainNode('PyTestAsyncMainNode', listener=listener, domain=DOMAI
 
 
 ############################################################
-########################### APPS ###########################
+########################### FLASK APPS #####################
 ############################################################
 
 @app.route('/status', methods=['GET', 'POST'])
@@ -203,6 +207,8 @@ def add_statistics():
 @app.route('/fetcher/model', methods=['GET', 'POST'])
 def add_model():
 
+    model_receiver_node.request_model()
+
     global model_data
 
     while model_data is None:
@@ -210,9 +216,12 @@ def add_model():
 
     time.sleep(1)  # Sleep for 1 second
 
+    model = model_data
+    model_data = None
+
     print("Send model")
 
-    return jsonify(model_data)
+    return jsonify(model)
 
 @app.route('/train/<nJob>/<nIter>/<percentageData>', methods=['GET', 'POST'])
 def add_message(nJob, nIter, percentageData):
@@ -257,13 +266,6 @@ def add_message(nJob, nIter, percentageData):
     print('All jobs sent. Waiting for solutions...')
     waiter.wait_equal(n_jobs)
     print('All solutions received.')
-
-    # try:
-    #     with open('test_save.json', 'w') as file:
-    #         json.dump(solution_data, file)
-    #     print("JSON data saved to file successfully.")
-    # except Exception as e:
-    #     print(f"Error occurred while saving JSON data: {e}")
 
     return jsonify(solution_data)
 

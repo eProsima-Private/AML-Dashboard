@@ -34,17 +34,105 @@ const detectorConfig = {
   modelType: 'full', // 'full' or 'lite'
   maxHands : 1 // could be 2 too.
 };
-// const detector = await handPoseDetection.createDetector(
-//   model_hand,
-//   {
-//     runtime: "mediapipe",
-//     maxHands: 1,
-//     solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
-//     modelType: 'full',
-//   }
-// );
 
 const detector = await handPoseDetection.createDetector(model_hand, detectorConfig);
+
+/**
+ * @brief Processes model data to compute prediction probabilities.
+ *
+ * This function takes in the JSON data representing a machine learning model
+ * and the training set data to compute prediction probabilities based on the
+ * model's characteristics and the training set. It calculates the cumulative
+ * misses for the negatives, probability per miss per class, and constructs
+ * a prediction function based on the computed probabilities.
+ *
+ * @param {Object} json - The JSON data representing the machine learning model.
+ * @param {Object} trainingSet - The training set data used for model training.
+ *
+ * @returns {Function} - A prediction function based on the processed model data.
+ */
+async function process_model_data(json, trainingSet) {
+  const n_misses_per_class = build_aml_model(json);
+
+  const map_neg_misses_per_class = {};
+  for (let cl in json['classes']) {
+    map_neg_misses_per_class[cl] = new Map();
+  }
+
+  const v = await trainingSet.find();
+  const dt = v.data;
+
+  for (let i = 0; i < dt.length; i++) {
+    const map_curr_misses = n_misses_per_class(dt[i].x);
+    for (let cl in map_curr_misses) {
+      if (cl != dt[i].y) {
+        const m = map_curr_misses[cl];
+        if (map_neg_misses_per_class[cl][m] != undefined) {
+          map_neg_misses_per_class[cl][m] += 1;
+        } else {
+          map_neg_misses_per_class[cl][m] = 1;
+        }
+      }
+    }
+  }
+
+  console.log('finished cumulatives!');
+
+  const map_p_per_miss_per_class = {};
+  for (let cl in json['classes']) {
+    const max_misses = json['classes'][cl][1].length;
+    const lst_cum = [];
+    let sum_misses = 0;
+    for (let i_n_misses = 0; i_n_misses < max_misses; i_n_misses++) {
+      if (map_neg_misses_per_class[cl][i_n_misses] != undefined) {
+        const n_times = map_neg_misses_per_class[cl][i_n_misses];
+        sum_misses += i_n_misses * n_times;
+      }
+      lst_cum.push(sum_misses);
+    }
+    for (let i_n_misses = 0; i_n_misses < max_misses; i_n_misses++) {
+      lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses);
+    }
+    map_p_per_miss_per_class[cl] = lst_cum;
+  }
+
+  console.log(map_p_per_miss_per_class);
+
+  function aml_model_predict(x_raw) {
+    const map_misses = n_misses_per_class(x_raw);
+    let selected_class;
+    let best_prob = 0.0;
+
+    let total_prob = 0.0;
+    const map_probs = {};
+    for (let cl_nm in map_misses) {
+      const n_misses_cl = map_misses[cl_nm];
+      let p_for_class = map_p_per_miss_per_class[cl_nm][n_misses_cl];
+      if (p_for_class == undefined) {
+        p_for_class = 0.0;
+      }
+
+      map_probs[cl_nm] = p_for_class;
+      total_prob = total_prob + p_for_class;
+      if (p_for_class >= best_prob) {
+        selected_class = cl_nm;
+        best_prob = p_for_class;
+      }
+    }
+
+    const map_confs = {};
+    const e = 0.00000001;
+    total_prob += e * Object.keys(map_probs).length;
+    for (let cl_nm in map_probs) {
+      map_confs[cl_nm] = (map_probs[cl_nm] + e) / total_prob;
+    }
+
+    return { 'label': selected_class, 'confidences': map_confs };
+  }
+
+  return aml_model_predict;
+}
+
 
 // -----------------------------------------------------------
 // INPUT PIPELINE & DATA CAPTURE
@@ -100,7 +188,6 @@ function generateRedBlob(imageData, startX, startY) {
       }
     }
   }
-
   // Update the ImageData with the modified pixels
   return imageData;
 }
@@ -189,14 +276,10 @@ textAMLTrainStatus.title = 'AML Status';
 const n_jobs = number(1);
 n_jobs.title = 'Parallel Training (executions)';
 
-const features_min_values = [1, 1, 1]; // Replace with your desired minimum values
-const features_max_values = [100, 100]; // Replace with your desired maximum values
-
 const features = ['Iterations', 'Percentage of data'];
 const features_values = [
   { value: 10, unit: '' },
-  { value: 20, unit: '' },
-  { value: 30, unit: '%' }
+  { value: 20, unit: '' }
 ];
 
 // Create the parameters object with Stream instances for each feature with each initial values
@@ -222,7 +305,7 @@ b_train_AML.$click.subscribe( async () => {
 
   const n_job = n_jobs.$value.get().toString();
   const n_iter = features_values[0].value.toString();
-  const percentage_data = features_values[2].value.toString();
+  const percentage_data = features_values[1].value.toString();
 
   console.log(json_dt);
   fetch(url_train + n_job + '/' + n_iter + '/' + percentage_data, {
@@ -242,80 +325,9 @@ b_train_AML.$click.subscribe( async () => {
     console.log(json);
     console.log('RECEIVED');
 
-    const n_misses_per_class = build_aml_model(json);
-
-    // Compute the cumulative misses for the negatives.
-    const map_neg_misses_per_class = {};
-    for(let cl in json['classes']) {
-      map_neg_misses_per_class[cl] = new Map();
-    }
-    const v = await trainingSet.find();
-    const dt = v.data;
-    for(let i = 0; i < dt.length; i++) {
-      const map_curr_misses = n_misses_per_class(dt[i].x);
-      for (let cl in map_curr_misses) {
-        if(cl != dt[i].y) {
-           const m = map_curr_misses[cl];
-           if(map_neg_misses_per_class[cl][m] != undefined) {
-            map_neg_misses_per_class[cl][m] += 1;
-           } else {
-            map_neg_misses_per_class[cl][m] = 1;
-           }
-        }
-      }
-    }
-    console.log('finished cumulatives!');
-    const map_p_per_miss_per_class = {};
-    for(let cl in json['classes']) {
-      const max_misses = json['classes'][cl][1].length;
-      const lst_cum = [];
-      let sum_misses = 0;
-      for(let i_n_misses=0; i_n_misses < max_misses; i_n_misses++) {
-        if(map_neg_misses_per_class[cl][i_n_misses] != undefined) {
-          const n_times = map_neg_misses_per_class[cl][i_n_misses];
-          sum_misses += i_n_misses*n_times;
-        }
-        lst_cum.push(sum_misses);
-      }
-      for(let i_n_misses=0; i_n_misses < max_misses; i_n_misses++) {
-        lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses);
-      }
-      map_p_per_miss_per_class[cl] = lst_cum;
-    }
-    console.log(map_p_per_miss_per_class);
+    const aml_model_predict = await process_model_data(json, trainingSet);
 
     console.log('AML model built!');
-    function aml_model_predict(x_raw) {
-      const map_misses = n_misses_per_class(x_raw);
-      let selected_class;
-      let best_prob = 0.0;
-
-      let total_prob = 0.0;
-      const map_probs = {}
-      for(let cl_nm in map_misses) {
-        const n_misses_cl = map_misses[cl_nm];
-        let p_for_class = map_p_per_miss_per_class[cl_nm][n_misses_cl];
-        if (p_for_class == undefined) {
-          p_for_class = 0.0;
-        }
-
-        map_probs[cl_nm] = p_for_class;
-        total_prob = total_prob + p_for_class;
-        if (p_for_class >= best_prob) {
-          selected_class = cl_nm;
-          best_prob = p_for_class;
-        }
-      }
-
-      const map_confs = {};
-      const e = 0.00000001;
-      total_prob += e* Object.keys(map_probs).length;
-      for(let cl_nm in map_probs) {
-        map_confs[cl_nm] = (map_probs[cl_nm]+e) / total_prob;
-      }
-
-      return {'label' : selected_class, 'confidences' : map_confs};
-    }
 
     aml_model['model'] = aml_model_predict;
     aml_model['ready'] = true;
@@ -389,7 +401,7 @@ const plotTraining = trainingPlot(classifier);
 
 
 // -----------------------------------------------------------
-// UPLOADING
+// UPLOADING (TODO)
 // -----------------------------------------------------------
 
 const model_uploaded = text('No model loaded');
@@ -400,93 +412,11 @@ b_upload_AML.title = 'AML upload model file'
 
 b_upload_AML.$files.subscribe( async (fl) => {
 
-  console.log(fl);
-  console.log(b_upload_AML);
   console.log(fl[0]);
-  // const json = await fl[0].json();
   const json = {};
-  // json.loadFromFile(fl[0]);
 
   console.log(json);
   console.log('MODEL UPLOADED');
-
-  const n_misses_per_class = build_aml_model(json);
-
-  // Compute the cumulative misses for the negatives.
-  const map_neg_misses_per_class = {};
-  for(let cl in json['classes']) {
-    map_neg_misses_per_class[cl] = new Map();
-  }
-  const v = await trainingSet.find();
-  const dt = v.data;
-  for(let i = 0; i < dt.length; i++) {
-    const map_curr_misses = n_misses_per_class(dt[i].x);
-    for (let cl in map_curr_misses) {
-      if(cl != dt[i].y) {
-          const m = map_curr_misses[cl];
-          if(map_neg_misses_per_class[cl][m] != undefined) {
-          map_neg_misses_per_class[cl][m] += 1;
-          } else {
-          map_neg_misses_per_class[cl][m] = 1;
-          }
-      }
-    }
-  }
-  console.log('finished cumulatives!');
-  const map_p_per_miss_per_class = {};
-  for(let cl in json['classes']) {
-    const max_misses = json['classes'][cl][1].length;
-    const lst_cum = [];
-    let sum_misses = 0;
-    for(let i_n_misses=0; i_n_misses < max_misses; i_n_misses++) {
-      if(map_neg_misses_per_class[cl][i_n_misses] != undefined) {
-        const n_times = map_neg_misses_per_class[cl][i_n_misses];
-        sum_misses += i_n_misses*n_times;
-      }
-      lst_cum.push(sum_misses);
-    }
-    for(let i_n_misses=0; i_n_misses < max_misses; i_n_misses++) {
-      lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses);
-    }
-    map_p_per_miss_per_class[cl] = lst_cum;
-  }
-  console.log(map_p_per_miss_per_class);
-
-  console.log('AML model built!');
-  function aml_model_predict(x_raw) {
-    const map_misses = n_misses_per_class(x_raw);
-    let selected_class;
-    let best_prob = 0.0;
-
-    let total_prob = 0.0;
-    const map_probs = {}
-    for(let cl_nm in map_misses) {
-      const n_misses_cl = map_misses[cl_nm];
-      let p_for_class = map_p_per_miss_per_class[cl_nm][n_misses_cl];
-      if (p_for_class == undefined) {
-        p_for_class = 0.0;
-      }
-
-      map_probs[cl_nm] = p_for_class;
-      total_prob = total_prob + p_for_class;
-      if (p_for_class >= best_prob) {
-        selected_class = cl_nm;
-        best_prob = p_for_class;
-      }
-    }
-
-    const map_confs = {};
-    const e = 0.00000001;
-    total_prob += e* Object.keys(map_probs).length;
-    for(let cl_nm in map_probs) {
-      map_confs[cl_nm] = (map_probs[cl_nm]+e) / total_prob;
-    }
-
-    return {'label' : selected_class, 'confidences' : map_confs};
-  }
-
-  aml_model['model'] = aml_model_predict;
-  aml_model['ready'] = true;
 
   model_uploaded.$value.set('<h1>Model uploaded !</h1> ');
 
@@ -532,10 +462,8 @@ search_statistics.$click.subscribe( async () => {
     console.log('STATISTICS RECEIVED');
 
     const name = json.name; // Extracting the value of 'name' field from the JSON response
-    console.log(name);
 
     collaborative_status.$value.set('<h1>Statistics received !</h1> ');
-
     statistics_received.$value.set('<h2>Statistics received: ' + name + '</h2>');
 
   });
@@ -570,90 +498,18 @@ request_model.$click.subscribe( async () => {
       console.log(json);
       console.log('MODEL RECEIVED');
 
-      const n_misses_per_class = build_aml_model(json);
-
-      // Compute the cumulative misses for the negatives.
-      const map_neg_misses_per_class = {};
-      for(let cl in json['classes']) {
-        map_neg_misses_per_class[cl] = new Map();
-      }
-      const v = await trainingSet.find();
-      const dt = v.data;
-      for(let i = 0; i < dt.length; i++) {
-        const map_curr_misses = n_misses_per_class(dt[i].x);
-        for (let cl in map_curr_misses) {
-          if(cl != dt[i].y) {
-            const m = map_curr_misses[cl];
-            if(map_neg_misses_per_class[cl][m] != undefined) {
-              map_neg_misses_per_class[cl][m] += 1;
-            } else {
-              map_neg_misses_per_class[cl][m] = 1;
-            }
-          }
-        }
-      }
-      console.log('finished cumulatives!');
-      const map_p_per_miss_per_class = {};
-      for(let cl in json['classes']) {
-        const max_misses = json['classes'][cl][1].length;
-        const lst_cum = [];
-        let sum_misses = 0;
-        for(let i_n_misses=0; i_n_misses < max_misses; i_n_misses++) {
-          if(map_neg_misses_per_class[cl][i_n_misses] != undefined) {
-            const n_times = map_neg_misses_per_class[cl][i_n_misses];
-            sum_misses += i_n_misses*n_times;
-          }
-          lst_cum.push(sum_misses);
-        }
-        for(let i_n_misses=0; i_n_misses < max_misses; i_n_misses++) {
-          lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses);
-        }
-        map_p_per_miss_per_class[cl] = lst_cum;
-      }
-      console.log(map_p_per_miss_per_class);
-
-      function aml_model_predict(x_raw) {
-        const map_misses = n_misses_per_class(x_raw);
-        let selected_class;
-        let best_prob = 0.0;
-
-        let total_prob = 0.0;
-        const map_probs = {}
-        for(let cl_nm in map_misses) {
-          const n_misses_cl = map_misses[cl_nm];
-          let p_for_class = map_p_per_miss_per_class[cl_nm][n_misses_cl];
-          if (p_for_class == undefined) {
-            p_for_class = 0.0;
-          }
-
-          map_probs[cl_nm] = p_for_class;
-          total_prob = total_prob + p_for_class;
-          if (p_for_class >= best_prob) {
-            selected_class = cl_nm;
-            best_prob = p_for_class;
-          }
-        }
-
-        const map_confs = {};
-        const e = 0.00000001;
-        total_prob += e* Object.keys(map_probs).length;
-        for(let cl_nm in map_probs) {
-          map_confs[cl_nm] = (map_probs[cl_nm]+e) / total_prob;
-        }
-
-        return {'label' : selected_class, 'confidences' : map_confs};
-      }
+      const aml_model_predict = await process_model_data(json, trainingSet);
 
       aml_model['model'] = aml_model_predict;
       aml_model['ready'] = true;
 
       collaborative_status.$value.set('<h1>Model received !</h1> ');
-
       model_received.$value.set('<h2>Model received</h2>');
 
     })
   }
 })
+
 
 // -----------------------------------------------------------
 // BATCH PREDICTION
@@ -722,7 +578,6 @@ togAML.$checked.subscribe((checked) => {
   }
 });
 
-
 const predictionStreamNN = hand_window
   .filter(() => togNN.$checked.get() && classifier.ready)
   .map(async (arr) => classifier.predict(calculate_time_features(arr).x))
@@ -732,7 +587,6 @@ const predictionStreamAML = hand_window
   .filter(() => togAML.$checked.get() && aml_model['ready'])
   .map(async (arr) => aml_model['model'](calculate_time_features(arr).x))
   .awaitPromises();
-
 
 const plotResultsNN = confidencePlot(predictionStreamNN);
 plotResultsNN.title = 'Results Neural Network';
@@ -744,18 +598,22 @@ plotResultsAML.title = 'Results AML';
 // STATUS
 // -----------------------------------------------------------
 
+// Define data store using localStorage
 export const store2 = dataStore('localStorage');
+// Create dataset named 'aml-ip state' using the defined store2
 export const ts = dataset('aml-ip state', store2);
-
+// Create dataset table for the 'ts' dataset with specified columns
 export const tst = datasetTable(ts, [
   'ID',
   'State',
   'Kind',
 ]);
 
+// Setup and clear the dataset
 await ts.setup();
 await ts.clear();
 
+// Define the URL for fetching status
 const url_status = "http://localhost:5000/status";
 
 // Function to fetch the status
@@ -777,6 +635,7 @@ function fetchStatus() {
   console.log(json);
   console.log('STATUS RECEIVED');
 
+  // Update instances in the dataset
   async function updateInstances(ts) {
     var instances = await ts
       .items() // get iterable
@@ -785,6 +644,7 @@ function fetchStatus() {
     return instances;
   }
 
+  // Check if ID is in instances
   function isRepeated(instances, ID) {
     for (var i in instances) {
       if (ID == instances[i].ID) {
@@ -794,6 +654,7 @@ function fetchStatus() {
     return false;
   }
 
+  // Function to get the id in the dataset based on ID
   function getId(instances, ID) {
     for (var i in instances) {
       if (ID == instances[i].ID) {
@@ -802,6 +663,7 @@ function fetchStatus() {
     }
   }
 
+  // Function to remove status from dataset
   function removeStatus(dataset, instances, ID) {
     var local_id = getId(instances, ID);
     dataset.remove(local_id);
@@ -814,25 +676,24 @@ function fetchStatus() {
   for (var node in nodes) {
 
     instances = await updateInstances(ts)
-
+    // Get ID of the current node
     const id = json['nodes'][node].ID;
 
+    // Check if ID is repeated, if so remove status
     if (isRepeated(instances, id)) {
+      // Remove the status of the nodes that are not in the dataset
       removeStatus(ts, instances, id);
     }
-
+    // Create node in the dataset
     ts.create(nodes[node]);
 
     instances = await updateInstances(ts)
-
   }
-
   });
-
 }
+// Fetch the status every 1 seconds
+setInterval(fetchStatus, 1000); // 1000 milliseconds = 1 seconds
 
-// Fetch the status every 5 seconds
-setInterval(fetchStatus, 1000); // 10000 milliseconds = 10 seconds
 
 // -----------------------------------------------------------
 // DASHBOARDS

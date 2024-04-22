@@ -1,11 +1,7 @@
-import random
 import numpy as np
 from tqdm import tqdm
-import os
 from aml_engine.amldl import (
     ADD,
-    APP,
-    C,
     CV,
     CMP,
     Descriptor,
@@ -14,32 +10,22 @@ from aml_engine.amldl import (
     HEADER,
     INC,
     M,
-    R,
-    SOME,
-    T,
-    V,
-    S,
 )
-
 
 from sklearn.preprocessing import KBinsDiscretizer
 from astropy.stats import bayesian_blocks
-
-_i = 1
-
 
 def MM(A, B):
     if A == None:
         return B
     else:
         return M(A, B)
-    
 
 def learn_prep_knn(X_train, X_test, n_bins=64, random_state=32):
     prep = KBinsDiscretizer(n_bins=n_bins, encode = 'ordinal',random_state=32)
     X_train_prep = prep.fit_transform(X_train)
     X_test_prep = prep.transform(X_test)
-    
+
     arr_feat_range = np.array([n_bins] * X_train_prep.shape[1])
     return X_train_prep, X_test_prep, arr_feat_range, prep.bin_edges_
 
@@ -47,12 +33,12 @@ def learn_prep_bayes(X_train, X_test):
     arr_feat_range = []
     X_train_prep = np.zeros(X_train.shape)
     X_test_prep = np.zeros(X_test.shape)
-    
+
     lst_edges = []
     for col in range(X_train.shape[1]):
         edges = bayesian_blocks(X_train[:,col])
         lst_edges.append(edges)
-    
+
     for col in range(X_train.shape[1]):
         edges = lst_edges[col]
         arr_feat_range.append(len(edges) + 1)
@@ -70,11 +56,6 @@ def embedding(params):
     n_classes =  params['n_classes']
     arr_feat_range = params['arr_feat_range']
 
-    # if prep == 'bayes':
-    #     X_train, X_test, arr_feat_range, edges = learn_prep_bayes(X_train, X_test)
-    # elif prep == 'kmeans':
-    #     X_train, X_test, arr_feat_range, edges = learn_prep_knn(X_train, X_test)
-    
     lst_ordered_classes = list(range(n_classes))
     outputValueTested = out_cls
 
@@ -84,7 +65,7 @@ def embedding(params):
         if HEADER("Sensors"):
             for feat_i in range(len(arr_feat_range)):
                 n_clusters_for_feat = arr_feat_range[feat_i]
-                
+
                 if n_clusters_for_feat > 1:
                     CV(f"LE{feat_i}", n_clusters_for_feat)
                     CV(f"G{feat_i}",  n_clusters_for_feat)
@@ -107,9 +88,9 @@ def embedding(params):
                 sensors_variable_range = int(arr_feat_range[feat_i])
                 if sensors_variable_range < 2:
                     continue
-                
+
                 sensorReading = int(x[feat_i])
-                
+
                 if sensorReading > sensors_variable_range - 1:
                     print(f"f{feat_i} r{sensorReading} m{sensors_variable_range - 1}")
                     raise IndexError(f"Sensor reading out of range")

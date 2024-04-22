@@ -29,6 +29,7 @@ DOMAIN_ID = 166
 waiter = BooleanWaitHandler(True, False)
 
 
+# Custom model replier
 class CustomModelReplier(ModelReplier):
 
     def fetch_model(
@@ -53,6 +54,7 @@ class CustomModelReplier(ModelReplier):
 def main():
     """Execute main routine."""
 
+    # Create ID
     id_sender = AmlipIdDataType('ModelManagerSender')
 
     # Create node
@@ -63,11 +65,13 @@ def main():
     print(f'Node created: {model_sender_node.get_id()}. '
           'Already processing models.')
 
+    # e.g. statistics data
     data = {
         'name': 'MobileNet V1',
         'size': 56
     }
 
+    # Start node
     model_sender_node.start(
         listener=CustomModelReplier())
 
@@ -81,11 +85,13 @@ def main():
         'ModelManagerSenderStatistics',
         statistics_dump)
 
+    # Wait for signal
     def handler(signum, frame):
         pass
     signal.signal(signal.SIGINT, handler)
     signal.pause()
 
+    # Stop node
     model_sender_node.stop()
 
     print('Finishing Model Manager Sender Node Py execution.')
