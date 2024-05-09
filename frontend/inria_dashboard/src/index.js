@@ -6,7 +6,6 @@ import {
   text,
   confusionMatrix,
   dashboard,
-  fileUpload,
   dataset,
   dataStore,
   datasetTable,
@@ -37,100 +36,17 @@ const detectorConfig = {
 
 const detector = await handPoseDetection.createDetector(model_hand, detectorConfig);
 
-/**
- * @brief Processes model data to compute prediction probabilities.
- *
- * This function takes in the JSON data representing a machine learning model
- * and the training set data to compute prediction probabilities based on the
- * model's characteristics and the training set. It calculates the cumulative
- * misses for the negatives, probability per miss per class, and constructs
- * a prediction function based on the computed probabilities.
- *
- * @param {Object} json - The JSON data representing the machine learning model.
- * @param {Object} trainingSet - The training set data used for model training.
- *
- * @returns {Function} - A prediction function based on the processed model data.
- */
-async function process_model_data(json, trainingSet) {
-  const n_misses_per_class = build_aml_model(json);
-
-  const map_neg_misses_per_class = {};
-  for (let cl in json['classes']) {
-    map_neg_misses_per_class[cl] = new Map();
-  }
-
-  const v = await trainingSet.find();
-  const dt = v.data;
-
-  for (let i = 0; i < dt.length; i++) {
-    const map_curr_misses = n_misses_per_class(dt[i].x);
-    for (let cl in map_curr_misses) {
-      if (cl != dt[i].y) {
-        const m = map_curr_misses[cl];
-        if (map_neg_misses_per_class[cl][m] != undefined) {
-          map_neg_misses_per_class[cl][m] += 1;
-        } else {
-          map_neg_misses_per_class[cl][m] = 1;
-        }
-      }
-    }
-  }
-
-  console.log('finished cumulatives!');
-
-  const map_p_per_miss_per_class = {};
-  for (let cl in json['classes']) {
-    const max_misses = json['classes'][cl][1].length;
-    const lst_cum = [];
-    let sum_misses = 0;
-    for (let i_n_misses = 0; i_n_misses < max_misses; i_n_misses++) {
-      if (map_neg_misses_per_class[cl][i_n_misses] != undefined) {
-        const n_times = map_neg_misses_per_class[cl][i_n_misses];
-        sum_misses += i_n_misses * n_times;
-      }
-      lst_cum.push(sum_misses);
-    }
-    for (let i_n_misses = 0; i_n_misses < max_misses; i_n_misses++) {
-      lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses);
-    }
-    map_p_per_miss_per_class[cl] = lst_cum;
-  }
-
-  console.log(map_p_per_miss_per_class);
-
-  function aml_model_predict(x_raw) {
-    const map_misses = n_misses_per_class(x_raw);
-    let selected_class;
-    let best_prob = 0.0;
-
-    let total_prob = 0.0;
-    const map_probs = {};
-    for (let cl_nm in map_misses) {
-      const n_misses_cl = map_misses[cl_nm];
-      let p_for_class = map_p_per_miss_per_class[cl_nm][n_misses_cl];
-      if (p_for_class == undefined) {
-        p_for_class = 0.0;
-      }
-
-      map_probs[cl_nm] = p_for_class;
-      total_prob = total_prob + p_for_class;
-      if (p_for_class >= best_prob) {
-        selected_class = cl_nm;
-        best_prob = p_for_class;
-      }
-    }
-
-    const map_confs = {};
-    const e = 0.00000001;
-    total_prob += e * Object.keys(map_probs).length;
-    for (let cl_nm in map_probs) {
-      map_confs[cl_nm] = (map_probs[cl_nm] + e) / total_prob;
-    }
-
-    return { 'label': selected_class, 'confidences': map_confs };
-  }
-
-  return aml_model_predict;
+function save_to_file(data, filename) {
+  const jsonString = JSON.stringify(data);
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
 }
 
 
@@ -148,23 +64,6 @@ capture.title = 'Capture instances to the training set';
 const store = dataStore('localStorage');
 const trainingSet = dataset('training-set-dashboard', store);
 const trainingSetBrowser = datasetBrowser(trainingSet);
-
-function setPixelToRed(imageData, x, y) {
-  // Get the pixel data from the ImageData object
-  const data = imageData.data;
-
-  // Calculate the index for the pixel at the specified (x, y) coordinates
-  const index = (y * imageData.width + x) * 4;
-
-  // Set the RGB values for the pixel to red
-  data[index] = 255;   // Red
-  data[index + 1] = 0; // Green (set to 0)
-  data[index + 2] = 0; // Blue (set to 0)
-  data[index + 3] = 255; // Alpha (fully opaque)
-
-  // Update the ImageData with the modified pixel
-  return imageData;
-}
 
 function generateRedBlob(imageData, startX, startY) {
   // Get the pixel data from the ImageData object
@@ -291,11 +190,13 @@ const controls = modelParameters({ parameters });
 controls.title = 'Choose input values per execution';
 
 b_train_AML.$click.subscribe( async () => {
-  console.log('train');
   textAMLTrainStatus.$value.set(' <h1>Training...</h1> <br> <img src="https://i.gifer.com/origin/05/05bd96100762b05b616fb2a6e5c223b4_w200.gif">');
 
-
   const v = await trainingSet.find();
+
+  // TODO: save the training set to a file each time is updated
+  save_to_file(v, "training_set_.json"); // Save the training set to a file
+
   const json_dt = {x : [], y : []};
   const dt = v.data;
   for(let i = 0; i < dt.length; i++) {
@@ -307,7 +208,6 @@ b_train_AML.$click.subscribe( async () => {
   const n_iter = features_values[0].value.toString();
   const percentage_data = features_values[1].value.toString();
 
-  console.log(json_dt);
   fetch(url_train + n_job + '/' + n_iter + '/' + percentage_data, {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
     mode: "cors", // no-cors, *cors, same-origin
@@ -325,11 +225,8 @@ b_train_AML.$click.subscribe( async () => {
     console.log(json);
     console.log('RECEIVED');
 
-    const aml_model_predict = await process_model_data(json, trainingSet);
+    save_to_file(json, "model_.json");
 
-    console.log('AML model built!');
-
-    aml_model['model'] = aml_model_predict;
     aml_model['ready'] = true;
 
     textAMLTrainStatus.$value.set('<h1>Finished :)</h1> ');
@@ -337,90 +234,9 @@ b_train_AML.$click.subscribe( async () => {
   });
 });
 
-function build_aml_model(json_info) {
-
-  const map_atoms = {}
-  for (let cl_nm  in json_info['classes']) {
-    const lst_atoms_sets = []
-    const atoms = json_info['classes'][cl_nm][1];
-    for (let atom_i=0; atom_i < atoms.length; atom_i++) {
-      const set_atom = new Set(atoms[atom_i]);
-      lst_atoms_sets.push(set_atom);
-    }
-    map_atoms[cl_nm] = {'inputs' : json_info['classes'][cl_nm][0], 'atoms' : lst_atoms_sets};
-  }
-
-  function get_input_indexes(x_raw) {
-    const input_indexes = [];
-    for(let xi = 0; xi < x_raw.length; xi++) {
-      const v = x_raw[xi];
-      const edges = json_info['edges'][xi];
-      let i = 0;
-      while (i < edges.length && v > edges[i]) {
-        i++;
-      }
-      input_indexes.push(i);
-    }
-    return input_indexes;
-  }
-
-  function n_misses_per_class(x_raw) {
-    const indexes = get_input_indexes(x_raw);
-    const map_misses = {};
-    for (let cl_nm in map_atoms) {
-      let my_input_consts = new Set();
-      const consts_here = map_atoms[cl_nm]['inputs'];
-      for (let fi = 0; fi < consts_here.length; fi++) {
-        my_input_consts.add(consts_here[fi][indexes[fi]]);
-      }
-      let n_misses = 0;
-      const atoms_of_class = map_atoms[cl_nm]['atoms'];
-      for(let atom_i=0; atom_i < atoms_of_class.length; atom_i++) {
-        const atom = atoms_of_class[atom_i];
-        let not_found = true;
-        for(const elem of my_input_consts) {
-          if(atom.has(elem)) {
-            not_found = false;
-            break;
-          }
-        }
-        if(not_found) {
-          n_misses++;
-        }
-      }
-      map_misses[cl_nm] = n_misses
-    }
-    return map_misses;
-  }
-  return n_misses_per_class
-}
-
 const params = modelParameters(classifier);
 const prog = trainingProgress(classifier);
 const plotTraining = trainingPlot(classifier);
-
-
-// -----------------------------------------------------------
-// UPLOADING (TODO)
-// -----------------------------------------------------------
-
-const model_uploaded = text('No model loaded');
-model_uploaded.title = 'AML Local Model';
-
-const b_upload_AML = fileUpload();
-b_upload_AML.title = 'AML upload model file'
-
-b_upload_AML.$files.subscribe( async (fl) => {
-
-  console.log(fl[0]);
-  const json = {};
-
-  console.log(json);
-  console.log('MODEL UPLOADED');
-
-  model_uploaded.$value.set('<h1>Model uploaded !</h1> ');
-
-});
 
 
 // -----------------------------------------------------------
@@ -430,13 +246,13 @@ b_upload_AML.$files.subscribe( async (fl) => {
 const url_fetcher = "http://localhost:5000/fetcher/";
 
 const statistics_received = text('No statistics received');
-statistics_received.title = 'AML Collaborative Statistics';
+statistics_received.title = 'AML Statistics';
 
 const model_received = text('No model received');
-model_received.title = 'AML Collaborative Model';
+model_received.title = 'AML Model';
 
 const collaborative_status = text('Not received');
-collaborative_status.title = 'AML Collaborative Status';
+collaborative_status.title = 'AML Collaborative Learning Status';
 
 const search_statistics = button('Search for statistics');
 search_statistics.title = 'AML Statistics Fetcher'
@@ -482,6 +298,11 @@ request_model.$click.subscribe( async () => {
     console.log('Request model');
     collaborative_status.$value.set(' <h1>Requesting model...</h1> <br> <img src="https://i.gifer.com/Cad.gif">');
 
+    const v = await trainingSet.find();
+
+    // TODO: save the training set to a file each time is updated
+    save_to_file(v, "training_set_.json"); // Save the training set to a file
+
     fetch(url_fetcher + 'model', {
       method: "GET", // *GET, POST, PUT, DELETE, etc.
       mode: "cors", // no-cors, *cors, same-origin
@@ -498,9 +319,8 @@ request_model.$click.subscribe( async () => {
       console.log(json);
       console.log('MODEL RECEIVED');
 
-      const aml_model_predict = await process_model_data(json, trainingSet);
+      save_to_file(json, "model_.json");
 
-      aml_model['model'] = aml_model_predict;
       aml_model['ready'] = true;
 
       collaborative_status.$value.set('<h1>Model received !</h1> ');
@@ -531,13 +351,39 @@ predictButton.$click.subscribe(async () => {
 });
 
 // FOR AML
+const url_inference = "http://localhost:5000/inference";
+
 const predictButtonAML = button('Update predictions');
 predictButtonAML.title = 'Algebraic Machine Learning';
 
 const batchAML = batchPrediction('AML', store);
 const confMatAML = confusionMatrix(batchAML);
 confMatAML.title = 'Results Algebraic Machine Learning'
-const mockAMLModel = {predict : function predict(x) { return aml_model['model'](x);  } }
+const mockAMLModel = {
+  predict : function predict(x) {
+    const json_dt = {data : x};
+
+    return fetch(url_inference, {
+      method: "POST", // *GET, POST, PUT, DELETE, etc.
+      mode: "cors", // no-cors, *cors, same-origin
+      cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+      credentials: "omit", // include, *same-origin, omit
+      headers: {
+        "Content-Type": "application/json",
+      },
+      redirect: "follow", // manual, *follow, error
+      referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+      body: JSON.stringify(json_dt), // body data type must match "Content-Type" header
+    })
+    .then(response => response.json())
+    .then(async json => {
+      console.log(json);
+      console.log('PREDICTION RECEIVED');
+
+      return json;
+    });
+  }
+};
 
 predictButtonAML.$click.subscribe(async () => {
   if (! aml_model['ready']) {
@@ -585,11 +431,39 @@ const predictionStreamNN = hand_window
 
 const predictionStreamAML = hand_window
   .filter(() => togAML.$checked.get() && aml_model['ready'])
-  .map(async (arr) => aml_model['model'](calculate_time_features(arr).x))
+  .map(async (arr) => {
+
+    // Prepare the data for the AML model
+    const json_dt = {data : calculate_time_features(arr).x};
+
+    // Predict using the AML model
+    console.log('Predicting using AML model');
+
+    return fetch(url_inference, {
+      method: "POST", // *GET, POST, PUT, DELETE, etc.
+      mode: "cors", // no-cors, *cors, same-origin
+      cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+      credentials: "omit", // include, *same-origin, omit
+      headers: {
+        "Content-Type": "application/json",
+      },
+      redirect: "follow", // manual, *follow, error
+      referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+      body: JSON.stringify(json_dt), // body data type must match "Content-Type" header
+    })
+    .then(response => response.json())
+    .then(async json => {
+      console.log(json);
+      console.log('INFERENCE RECEIVED');
+
+      return json;
+    });
+  })
   .awaitPromises();
 
 const plotResultsNN = confidencePlot(predictionStreamNN);
 plotResultsNN.title = 'Results Neural Network';
+
 const plotResultsAML = confidencePlot(predictionStreamAML);
 plotResultsAML.title = 'Results AML';
 
@@ -631,9 +505,6 @@ function fetchStatus() {
   })
   .then(response => response.json())
   .then(async json => {
-
-  console.log(json);
-  console.log('STATUS RECEIVED');
 
   // Update instances in the dataset
   async function updateInstances(ts) {
@@ -706,10 +577,9 @@ const dash = dashboard({
 
 dash
   .page('Data Management')
-  .sidebar(input, instanceViewer) //featureExtractor)
+  .sidebar(input, instanceViewer)
   .use([label, capture], trainingSetBrowser);
 dash.page('Training').sidebar(b_train_AML, n_jobs, controls, textAMLTrainStatus).use(b, params, prog, plotTraining);
-dash.page('Uploading').sidebar(model_uploaded).use(b_upload_AML);
 dash.page('Fetching').sidebar(collaborative_status).use(search_statistics, statistics_received, request_model, model_received);
 dash.page('Batch Prediction').use( [predictButtonAML, confMatAML], [predictButton, confMat]);
 dash.page('Real-time Prediction').sidebar(togAML, togNN, input).use([plotResultsNN, plotResultsAML]);

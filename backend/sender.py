@@ -14,6 +14,7 @@
 
 import pickle as pkl
 import signal
+import os
 
 from py_utils.wait.BooleanWaitHandler import BooleanWaitHandler
 
@@ -40,8 +41,14 @@ class CustomModelReplier(ModelReplier):
         print(request.to_string())
         print('\n')
 
+        # Get the path to the Downloads directory
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+
+        # Create the full path to the file
+        model_path = os.path.join(downloads_path, "model_.json")
+
         try:
-            with open('aml_model.json', 'r') as file:
+            with open(model_path, 'r') as file:
                 file_data = file.read()
             reply = ModelReplyDataType(file_data)
             print('Publish reply\n')

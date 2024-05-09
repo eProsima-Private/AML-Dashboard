@@ -75,6 +75,26 @@
 	python3 sender.py
 	```
 
+5.	**Run an Inference Node**
+
+	5.1. Run the docker image
+
+	```bash
+	docker run --rm -it --net=host --ipc=host amlip
+	```
+
+	5.2. Load the AML-IP environment
+
+	```bash
+	source /AML-IP/install/setup.bash
+	```
+
+	5.3. Start the Inference Node
+
+	```bash
+	python3 inference.py
+	```
+
 # Frontend Marcelle Framework
 
 1.	**Install dependencies**

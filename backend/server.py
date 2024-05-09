@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from py_utils.wait.IntWaitHandler import IntWaitHandler
+from py_utils.wait.BooleanWaitHandler import BooleanWaitHandler
 
 from amlip_py.node.AsyncMainNode import AsyncMainNode, SolutionListener
 from amlip_py.types.JobDataType import JobDataType
@@ -17,6 +18,9 @@ from amlip_py.types.ModelRequestDataType import ModelRequestDataType
 from amlip_py.types.ModelStatisticsDataType import ModelStatisticsDataType
 from amlip_py.types.AmlipIdDataType import AmlipIdDataType
 from amlip_py.node.StatusNode import StatusListener, StatusNode
+from amlip_py.node.AsyncEdgeNode import AsyncEdgeNode, InferenceSolutionListener
+from amlip_py.types.InferenceDataType import InferenceDataType
+from amlip_py.types.InferenceSolutionDataType import InferenceSolutionDataType
 
 status_data = {}
 status_data['nodes'] = []
@@ -122,8 +126,30 @@ class CustomSolutionListener(SolutionListener):
         else:
             solution_data.update(json.loads(solution.to_string()))
 
-        global waiter
-        waiter.increase()
+        global waiter_job
+        waiter_job.increase()
+
+class CustomInferenceListener(InferenceSolutionListener):
+
+    def __init__(self):
+        super().__init__()
+
+    def inference_received(
+            self,
+            inference: InferenceSolutionDataType,
+            task_id: int,
+            server_id: int) -> bool:
+
+        print(f'Data received from server: {server_id}\n'
+            f' with id: {task_id}\n'
+            f' inference: {inference.to_string()}')
+
+        global inference_data
+        inference_data = json.loads(inference.to_string())
+
+        global waiter_inference
+        waiter_inference.open()
+
 
 ############################################################
 ########################### AML IP NODES ###################
@@ -164,8 +190,19 @@ model_receiver_node.start(
 
 # Create node
 print('Starting Async Main Node Py execution. Creating Node...')
-listener = CustomSolutionListener()
-main_node = AsyncMainNode('PyTestAsyncMainNode', listener=listener, domain=DOMAIN_ID)
+main_node = AsyncMainNode(
+    'PyTestAsyncMainNode',
+    listener=CustomSolutionListener(),
+    domain=DOMAIN_ID)
+
+### AsyncEdgeNode ###
+
+# Create node
+print('Starting Async Edge Node Py execution. Creating Node...')
+edge_node = AsyncEdgeNode(
+    'PyTestAsyncEdgeNode',
+    listener=CustomInferenceListener(),
+    domain=DOMAIN_ID)
 
 
 ############################################################
@@ -179,8 +216,6 @@ def add_status():
 
     while status_data is None:
         pass
-
-    print("Send status")
 
     return_data = status_data
     status_data = {}
@@ -198,8 +233,6 @@ def add_statistics():
         pass
 
     time.sleep(1)  # Sleep for 1 second
-
-    print("Send statistics")
 
     return jsonify(statistics_data)
 
@@ -219,16 +252,13 @@ def add_model():
     model = model_data
     model_data = None
 
-    print("Send model")
-
     return jsonify(model)
 
 @app.route('/train/<nJob>/<nIter>/<percentageData>', methods=['GET', 'POST'])
 def add_message(nJob, nIter, percentageData):
-    print("Received")
 
-    global waiter
-    waiter = IntWaitHandler(True)
+    global waiter_job
+    waiter_job = IntWaitHandler(True)
 
     content = request.json
 
@@ -247,8 +277,6 @@ def add_message(nJob, nIter, percentageData):
         # Calculate how many items x% is
         num_items = len(zipped_data) * percentage_data // 100
 
-        print(f'Number of items: {num_items}')
-
         # Take a random sample of x% of the data
         sampled_zipped_data = random.sample(zipped_data, num_items)
 
@@ -264,10 +292,34 @@ def add_message(nJob, nIter, percentageData):
         task_id = main_node.request_job_solution(job_data)
 
     print('All jobs sent. Waiting for solutions...')
-    waiter.wait_equal(n_jobs)
+    waiter_job.wait_equal(n_jobs)
     print('All solutions received.')
 
     return jsonify(solution_data)
+
+@app.route('/inference', methods=['GET', 'POST'])
+def add_inference():
+
+    global waiter_inference
+    waiter_inference = BooleanWaitHandler(True, False)
+
+    content = request.json
+
+    global inference_data
+    inference_data = None
+
+    data = json.dumps(content)
+
+    inference = InferenceDataType(data)
+
+    task_id = edge_node.request_inference(inference)
+
+    print(f'Request sent with task id: {task_id}. Waiting inference...')
+    # Wait to received solution
+    waiter_inference.wait()
+    print('Inference received.')
+
+    return jsonify(inference_data)
 
 
 if __name__ == "__main__":
