@@ -1,133 +1,229 @@
-# Backend Server
+# AML-Dashboard
 
-1. **Build the docker image**
 
-	This image is installed with AML-IP and is able to run AML-IP nodes.
+## Installation
 
-	```bash
-	docker build -t amlip --no-cache -f Dockerfile .
-	```
+To get started with AML-Dashboard, follow these steps.
 
-2.	**Run the server**
+Clone this repository using the following command:
 
-	2.1. Run the docker image
+```bash
+git clone https://github.com/eProsima-Private/AML-Dashboard.git
+```
 
-	```bash
-	docker run --rm -it --net=host --ipc=host amlip
-	```
+### Dependencies
 
-	2.2. Load the AML-IP environment
+#### Building from sources
+
+If **AML-IP** is not already installed in your system, follow one of the methods outlined in its [documentation site](https://aml-ip.readthedocs.io/en/latest/rst/developer_manual/installation/sources/linux/linux.html).
+
+
+#### Docker
+
+Alternatively, you can use the **AML-IP Docker** image with all dependencies pre-installed.
+
+Here's how you can build the Docker image from the provided [Dockerfile](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/Dockerfile). Simply execute the following command from the top-level directory:
+
+```bash
+docker build -t amlip --no-cache -f Dockerfile .
+```
+
+### Requirements
+
+Before proceeding further, ensure that you have **npm** (8.5.1) and **nodejs** (v12.22.9) installed on your system. If not, install them using the following commands:
+
+```bash
+sudo apt install -y npm nodejs
+```
+
+Verify the installed versions using:
+
+```bash
+npm -v
+node -v
+```
+
+Finally, navigate to the [`frontend/inria_dashboard`](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/frontend/inria_dashboard) directory and install the frontend dependencies:
+
+```bash
+cd frontend/inria_dashboard
+npm i
+```
+
+By following these steps, you'll have AML-Dashboard up and running, equipped with all the necessary components and dependencies.
+
+
+## Execution
+
+### Backend Server
+
+To run the AML-IP nodes and the backend server, follow the steps below:
+
+**Run the server**
+
+1. Load the AML-IP environment
 
 	```bash
 	source /AML-IP/install/setup.bash
 	```
 
-	2.3. Start the server
+2. Start the [server](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/backend/server.py)
 
 	```bash
 	python3 server.py
 	```
 
-	Inside `server.py`, you can specify the number of jobs (`n_jobs`) to be distributed among one or more computing nodes, along with the iterations within each job. For instance, if you have two jobs, each job will handle half of the iterations. The resulting models from both jobs will be combined into a comprehensive model.
+**Run AML-IP nodes**
 
+Depending on your requirements, you can run different types of AML-IP nodes:
 
-3.	**Run a Computing Node**
+* **Run a Computing Node**
 
-	3.1. Run the docker image
+	1. Load the AML-IP environment
 
-	```bash
-	docker run --rm -it --net=host --ipc=host amlip
-	```
+		```bash
+		source /AML-IP/install/setup.bash
+		```
 
-	3.2. Load the AML-IP environment
+	2. Start the [Computing Node](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/backend/computing.py)
 
-	```bash
-	source /AML-IP/install/setup.bash
-	```
-
-	3.3. Start the Computing Node
-
-	```bash
-	python3 computing.py
-	```
+		```bash
+		python3 computing.py
+		```
 
 	You can run multiple computing nodes simultaneously. Each computing node will continuously await job assignments. When running multiple nodes, they will collectively distribute the workload, optimizing the time to find a solution.
 
 	To stop a computing node, simply run `ctrl+C`.
 
-4.	**Run a Model Manager Sender Node**
+* **Run a Model Manager Sender Node**
 
-	4.1. Run the docker image
+	1. Load the AML-IP environment
 
-	```bash
-	docker run --rm -it --net=host --ipc=host amlip
-	```
+		```bash
+		source /AML-IP/install/setup.bash
+		```
 
-	4.2. Load the AML-IP environment
+	2. Start the [Model Manager Sender Node](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/backend/sender.py)
 
-	```bash
-	source /AML-IP/install/setup.bash
-	```
+		```bash
+		python3 sender.py
+		```
 
-	4.3. Start the Model Manager Sender Node
+	To stop a model manager sender node, simply run `ctrl+C`.
 
-	```bash
-	python3 sender.py
-	```
+* **Run an Inference Node**
 
-5.	**Run an Inference Node**
+	1. Load the AML-IP environment
 
-	5.1. Run the docker image
+		```bash
+		source /AML-IP/install/setup.bash
+		```
 
-	```bash
-	docker run --rm -it --net=host --ipc=host amlip
-	```
+	2. Start the [Inference Node](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/backend/inference.py)
 
-	5.2. Load the AML-IP environment
+		```bash
+		python3 inference.py
+		```
 
-	```bash
-	source /AML-IP/install/setup.bash
-	```
+	To stop an inference node, simply run `ctrl+C`.
 
-	5.3. Start the Inference Node
+### Frontend Marcelle Framework
 
-	```bash
-	python3 inference.py
-	```
+To run the frontend Marcelle framework, follow the steps below:
 
-# Frontend Marcelle Framework
+**Launch the dashboard**
 
-1.	**Install dependencies**
-
-	1.1. Install npm (8.5.1) and nodejs (v12.22.9)
-
-	```bash
-	sudo apt install -y npm nodejs
-	```
-
-	1.2. Check installed versions
-
-	```bash
-	npm -v
-	node -v
-	```
-
-	1.3. Install the dependencies
-
-	```bash
-	npm i
-	```
-
-2.	**Launch dashboard**
-
-	2.1. Navigate to the *frontend/inria_dashboard* Directory
+1. Navigate to the [*frontend/inria_dashboard*](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/frontend/inria_dashboard) directory
 
 	```bash
 	cd frontend/inria_dashboard
 	```
 
-	2.2. Run the dashboard
+2. Run the dashboard
 
 	```bash
 	npm run dev
 	```
+
+With these steps completed, you're all set to utilize the AML-Dashboard, seamlessly integrating backend server functionalities with the Marcelle framework frontend.
+
+
+## Usage
+
+With the AML-Dashboard up and running, you can access it at the following address:
+
+```bash
+http://localhost:5173/
+```
+
+### Data Management Tab
+
+Efficiently manage and create new datasets.
+
+To create a dataset, simply follow these steps:
+
+1. Activate the `video` switch in the *webcam* section to enable webcam capture.
+2. Specify the label of the dataset in the *Instance label* section.
+3. Click on the `Hold to record instances` button in the *Capture instances to the training set* to start recording instances.
+4. Once recorded, the dataset will be promptly displayed in the *dataset browser* section for easy access and management.
+
+### Training Tab
+
+Effortlessly train models using either AML or Neural Network.
+
+To train a model using AML, follow these steps:
+
+1. Specify the number of parallel trainings (executions) you wish to run.
+2. Define the number of iterations per execution.
+3. Set the percentage of dataset to distribute in each execution.
+4. Click on the `Train` button in the *AML Training Launcher* to initiate the training process.
+5. Once the training is completed, the model status will appear as **Finished :)** in the *AML Status*.
+
+* Please ensure that at least one **Computing Node** is running to facilitate the training process.
+
+### Fetching Tab
+
+Retrieve trained AML Models effortlessly.
+
+To fetch a model, follow these steps:
+
+1. Click on the `Search for statistics` button in the *AML Statistics Fetcher*.
+2. Once the statistics are received, the status will appear as **Statistics received !** in the *AML Collaborative Learning Status*.
+3. Click on the `Request model` button in the *AML Model Fetcher*.
+4. Once the model is received, the status will change to **Model received !** in the *AML Collaborative Learning Status*.
+
+* Make sure that at least one **Model Manager Sender Node** is running to facilitate the model fetching process.
+
+### Batch Prediction Tab
+
+Effortlessly predict the output of a batch of inputs using an AML Model.
+
+To predict the output of a dataset, follow these steps:
+
+1. Click on the `Update predictions` button in the *Algebraic Machine Learning*.
+2. The predictions will be displayed in the *Results Algebraic Machine Learning* plot.
+
+* Ensure that you have access to at least one AML Model to facilitate the batch prediction process.
+
+### Real-Time Prediction Tab
+
+Experience real-time image prediction, utilizing either an AML Model or a Neural Network.
+
+To predict the output of webcam images in real-time using an AML Model, follow these steps:
+
+1. Toggle the `prediction` switch in the *Predict for AML* section and activate the `video` switch in the *webcam* section.
+2. The predictions will be displayed in the *Results AML* plot.
+
+* Ensure that you have access to at least one AML Model to facilitate the real-time prediction process.
+
+### Status Tab
+
+Get a detailed overview of the currently active AML-IP nodes within the network.
+
+Here's what it entails:
+
+* **[ID](https://aml-ip.readthedocs.io/en/latest/rst/user_manual/nodes/nodes.html#node-id)**: Each node in the network has a unique Id. This Id is generated by combining the node's name with a randomly generated number, ensuring its uniqueness.
+* **[State](https://aml-ip.readthedocs.io/en/latest/rst/user_manual/nodes/nodes.html#node-state)**: This indicates the current operational status of each node, providing valuable insights into their functionality.
+* **[Kind](https://aml-ip.readthedocs.io/en/latest/rst/user_manual/nodes/nodes.html#node-kind)**: Every node is categorized into a specific kind, defining their behavior and role within the network. There are no restrictions on the number of nodes of the same kind that can operate concurrently within the network.
+
+The status tab automatically refreshes every second, ensuring you receive real-time updates and information about the network's status.
