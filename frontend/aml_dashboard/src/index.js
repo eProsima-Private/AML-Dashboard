@@ -572,7 +572,7 @@ setInterval(fetchStatus, 1000); // 1000 milliseconds = 1 seconds
 
 const dash = dashboard({
   title: 'AML Explorer',
-  author: 'DFKI - INRIA',
+  author: 'DFKI - INRIA - EPROSIMA',
 });
 
 dash

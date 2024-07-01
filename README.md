@@ -43,10 +43,10 @@ npm -v
 node -v
 ```
 
-Finally, navigate to the [`frontend/inria_dashboard`](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/frontend/inria_dashboard) directory and install the frontend dependencies:
+Finally, navigate to the [`frontend/aml_dashboard`](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/frontend/aml_dashboard) directory and install the frontend dependencies:
 
 ```bash
-cd frontend/inria_dashboard
+cd frontend/aml_dashboard
 npm i
 ```
 
@@ -133,10 +133,10 @@ To run the frontend Marcelle framework, follow the steps below:
 
 **Launch the dashboard**
 
-1. Navigate to the [*frontend/inria_dashboard*](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/frontend/inria_dashboard) directory
+1. Navigate to the [*frontend/aml_dashboard*](https://github.com/eProsima-Private/AML-Dashboard/blob/feature/dfki_demo_amlip/frontend/aml_dashboard) directory
 
 	```bash
-	cd frontend/inria_dashboard
+	cd frontend/aml_dashboard
 	```
 
 2. Run the dashboard
