@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Use a bash shell so it is possigle to run things like `source` (required for colcon builds)
 SHELL ["/bin/bash", "-c"]
 
-ARG amlip_branch="feature/amlip_js"
+ARG amlip_branch="main"
 
 # Avoid interactuation with installation of some package that needs the locale.
 ENV TZ=Europe/Madrid
@@ -33,7 +33,9 @@ RUN apt update && \
         libyaml-cpp-dev \
         pip \
         swig \
-        wget && \
+        wget \
+        npm \
+        nodejs && \
     pip3 install -U colcon-common-extensions \
         vcstool \
         astropy==5.3.4 \
@@ -75,8 +77,13 @@ RUN mkdir src && \
 
 # Copy backend source code from host
 WORKDIR /backend
-RUN mkdir -p src
 COPY backend/ /backend/
+
+# Copy frontend source code from host
+WORKDIR /frontend
+COPY frontend/ /frontend/
+
+WORKDIR /
 
 # Source built workspace
 RUN echo "source /AML-IP/install/setup.bash" >> ~/.bashrc
