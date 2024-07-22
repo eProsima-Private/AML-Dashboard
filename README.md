@@ -40,7 +40,7 @@ By following these steps, you'll have AML-Dashboard up and running, equipped wit
 
 ## Docker
 
-Alternatively, you can use the **AML-IP Docker** image with all dependencies pre-installed.
+Alternatively, you can use the **AML-Dashboard Docker** image with all dependencies pre-installed.
 
 Here's how you can build the Docker image from the provided [Dockerfile](Dockerfile). Simply execute the following command from the top-level directory:
 
@@ -245,6 +245,26 @@ To predict the output of webcam images in real-time using an AML Model, follow t
 
 <div align="center">
   <img src=".figures/aml-dashboard_real_time.png" width="750">
+</div>
+
+### Context Broker Tab
+
+Effortlessly manage the Context Broker, allowing you to create and update data to an entity and get the solution of this data.
+
+Here's how to use it:
+
+1. Specify the Fiware Node parameters and Context Broker entity ID and attributes.
+2. Click on the `Create` button to create the node using the provided parameters.
+3. The *Fiware Node Status* will update to indicate whether the node has been created successfully.
+3. Drag and drop an image or upload a file in the designated area to upload data.
+4. Click the `Post Data` button to send the data to the Context Broker.
+5. The *Data Status* will update to indicate whether the data has been successfully posted.
+6. Once the solution is received, it will be displayed in the *Context Broker Solution* section and the *Solution Status* will update to **Solution received !** to indicate successful retrieval.
+
+* Make sure that the Context Broker is running to ensure successful interaction and data exchange.
+
+<div align="center">
+  <img src=".figures/aml-dashboard_context_broker.png" width="750">
 </div>
 
 ### Status Tab

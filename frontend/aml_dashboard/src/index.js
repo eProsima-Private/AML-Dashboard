@@ -1,31 +1,34 @@
 import '@marcellejs/core/dist/marcelle.css';
 import {
   batchPrediction,
-  datasetBrowser,
   button,
-  text,
+  confidencePlot,
   confusionMatrix,
   dashboard,
   dataset,
-  dataStore,
+  datasetBrowser,
   datasetTable,
+  dataStore,
+  fileUpload,
+  imageDisplay,
+  imageUpload,
   mlpClassifier,
-  number,
   modelParameters,
-  confidencePlot,
+  number,
   Stream,
-  trainingProgress,
+  text,
   textInput,
+  throwError,
   toggle,
   trainingPlot,
-  webcam,
-  throwError,
-  imageDisplay
+  trainingProgress,
+  webcam
 } from '@marcellejs/core';
 
 
 import '@tensorflow-models/hand-pose-detection';
 import * as handPoseDetection from '@tensorflow-models/hand-pose-detection';
+import { dropout } from '@tensorflow/tfjs-core';
 
 const model_hand = handPoseDetection.SupportedModels.MediaPipeHands;
 const detectorConfig = {
@@ -175,19 +178,17 @@ textAMLTrainStatus.title = 'AML Status';
 const n_jobs = number(1);
 n_jobs.title = 'Parallel Training (executions)';
 
-const features = ['Iterations', 'Percentage of data'];
-const features_values = [
-  { value: 10, unit: '' },
-  { value: 20, unit: '' }
-];
+const features = {
+  parameters: {
+    'Iterations': new Stream(10, true),
+    'Percentage of data': new Stream(20, true),
+  },
+};
 
-// Create the parameters object with Stream instances for each feature with each initial values
-const parameters = Object.fromEntries(
-  features.map((feature, index) => [feature, new Stream(features_values[index].value, true)])
-);
-
-const controls = modelParameters({ parameters });
+const controls = modelParameters(features);
 controls.title = 'Choose input values per execution';
+
+console.log('Controls:', controls);
 
 b_train_AML.$click.subscribe( async () => {
   textAMLTrainStatus.$value.set(' <h1>Training...</h1> <br> <img src="https://i.gifer.com/origin/05/05bd96100762b05b616fb2a6e5c223b4_w200.gif">');
@@ -469,6 +470,161 @@ plotResultsAML.title = 'Results AML';
 
 
 // -----------------------------------------------------------
+// INSTANCE VIEWER
+// -----------------------------------------------------------
+
+const create_fiware = button('Create');
+create_fiware.title = 'Fiware Node';
+
+// Configure the parameters for the Fiware Node
+const fiware_params = {
+  parameters: {
+    'Name': new Stream('MyFiwareNode', true),
+    'Domain': new Stream(0, true),
+    'Server IP': new Stream('192.168.1.51', true),
+    'Server Port': new Stream(1028, true),
+    'Context Broker IP': new Stream('localhost', true),
+    'Context Broker Port': new Stream(1026, true),
+    'Entity ID': new Stream('urn:ngsi-ld:Device:001', true),
+    'Attribute Data': new Stream('Data', true),
+    'Attribute Solution': new Stream('Inference', true),
+  },
+};
+
+const fiware_node = modelParameters(fiware_params);
+fiware_node.title = 'Choose parameters for the Fiware Node creation:';
+
+const fiware_node_status = text('Not Created');
+fiware_node_status.title = 'Fiware Node Status';
+
+const post_data = button('Post Data');
+post_data.title = 'Context Broker Data';
+
+const upload_data = imageUpload();
+upload_data.title = 'Upload data to the Context Broker';
+
+const data_status = text('Not Sended');
+data_status.title = 'Data Status';
+
+const get_solution = text('{}');
+get_solution.title = 'Context Broker Solution';
+
+const solution_status = text('Not Received');
+solution_status.title = 'Solution Status';
+
+let image;
+
+const url_context_broker = "http://localhost:5000/context_broker/";
+
+// Create the Fiware Node
+create_fiware.$click.subscribe( async () => {
+
+  fiware_node_status.$value.set(' <h1>Creating...</h1> <br> <img src="https://i.gifer.com/Cad.gif">');
+
+  const parameters = {};
+  for (let param in fiware_params.parameters) {
+    parameters[param] = fiware_params.parameters[param].value;
+  }
+
+  fetch(url_context_broker + 'fiware', {
+    method: "POST", // *GET, POST, PUT, DELETE, etc.
+    mode: "cors", // no-cors, *cors, same-origin
+    cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+    credentials: "omit", // include, *same-origin, omit
+    headers: {
+      "Content-Type": "application/json",
+    },
+    redirect: "follow", // manual, *follow, error
+    referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+    body: JSON.stringify(parameters), // body data type must match "Content-Type" header
+  })
+  .then(response => response.json())
+  .then(async json => {
+    console.log(json);
+    console.log('CREATED');
+
+    fiware_node_status.$value.set('<h1>Created !</h1> ');
+
+  });
+});
+
+// Post the data to the Context Broker
+post_data.$click.subscribe( async () => {
+
+  if (upload_data.$images.value == undefined)
+  {
+    throwError(new Error('No data has been uploaded'));
+  }
+  else
+  {
+    data_status.$value.set(' <h1>Sending...</h1> <br> <img src="https://i.gifer.com/Cad.gif">');
+    const image_data = Array.from(image.data);
+
+    fetch(url_context_broker + 'data', {
+      method: "POST", // *GET, POST, PUT, DELETE, etc.
+      mode: "cors", // no-cors, *cors, same-origin
+      cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+      credentials: "omit", // include, *same-origin, omit
+      headers: {
+        "Content-Type": "application/json",
+      },
+      redirect: "follow", // manual, *follow, error
+      referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+      body: JSON.stringify({
+        width : 6,
+        height : 6,
+        data : image_data
+      }) // body data type must match "Content-Type" header
+    })
+    .then(response => response.json())
+    .then(async json => {
+      console.log('SENDED');
+
+      data_status.$value.set('<h1>Sended !</h1> ');
+
+      solution_status.$value.set('<h1>Waiting for solution...</h1> ');
+
+      // Get the solution from the Context Broker
+      fetch(url_context_broker + 'solution', {
+        method: "GET", // *GET, POST, PUT, DELETE, etc.
+        mode: "cors", // no-cors, *cors, same-origin
+        cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+        credentials: "omit", // include, *same-origin, omit
+        headers: {
+          "Content-Type": "application/json",
+        },
+        redirect: "follow", // manual, *follow, error
+        referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+      })
+      .then(response => response.json())
+      .then(async json => {
+        console.log(json);
+        console.log('SOLUTION RECEIVED');
+
+        var solution_attr = fiware_params.parameters['Attribute Solution'].value;
+        var solution = json[solution_attr];
+
+        var solution_string = JSON.stringify(solution, null, 4);
+        console.log(solution_string);
+
+        get_solution.$value.set(`<pre>${solution_string}</pre>`);
+
+        solution_status.$value.set('<h1>Solution received !</h1> ');
+
+      });
+    });
+  }
+});
+
+// Upload the data that will be sent to the Context Broker
+upload_data.$images.subscribe( async (img) => {
+
+  image = img;
+  data_status.$value.set(' <h1>Image uploaded</h1> ');
+});
+
+
+// -----------------------------------------------------------
 // STATUS
 // -----------------------------------------------------------
 
@@ -583,6 +739,7 @@ dash.page('Training').sidebar(b_train_AML, n_jobs, controls, textAMLTrainStatus)
 dash.page('Fetching').sidebar(collaborative_status).use(search_statistics, statistics_received, request_model, model_received);
 dash.page('Batch Prediction').use( [predictButtonAML, confMatAML], [predictButton, confMat]);
 dash.page('Real-time Prediction').sidebar(togAML, togNN, input).use([plotResultsNN, plotResultsAML]);
+dash.page('Context broker').sidebar(create_fiware, fiware_node, fiware_node_status).use(post_data, upload_data, data_status, get_solution, solution_status);
 dash.page('Status').use(tst);
 dash.settings.dataStores(store, store2).datasets(trainingSet).models(classifier).predictions(batchMLP);
 

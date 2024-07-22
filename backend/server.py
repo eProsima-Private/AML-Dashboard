@@ -2,6 +2,7 @@ import json
 import random
 import pickle as pkl
 import time
+import threading
 
 from flask import Flask, request, jsonify
 
@@ -21,6 +22,7 @@ from amlip_py.node.StatusNode import StatusListener, StatusNode
 from amlip_py.node.AsyncEdgeNode import AsyncEdgeNode, InferenceSolutionListener
 from amlip_py.types.InferenceDataType import InferenceDataType
 from amlip_py.types.InferenceSolutionDataType import InferenceSolutionDataType
+from amlip_py.node.FiwareNode import FiwareNode
 
 status_data = {}
 status_data['nodes'] = []
@@ -320,6 +322,58 @@ def add_inference():
     print('Inference received.')
 
     return jsonify(inference_data)
+
+@app.route('/context_broker/fiware', methods=['GET', 'POST'])
+def create_fiware_node():
+
+    global fiware_node_content
+    fiware_node_content = request.json
+
+    print(f'Creating Fiware node with data: {fiware_node_content}')
+
+    global fiware_node
+    fiware_node = FiwareNode(
+        name=fiware_node_content['Name'],
+        server_ip=fiware_node_content['Server IP'],
+        server_port=fiware_node_content['Server Port'],
+        context_broker_ip=fiware_node_content['Context Broker IP'],
+        context_broker_port=fiware_node_content['Context Broker Port'],
+        entity_id=fiware_node_content['Entity ID'],
+        entity_data=fiware_node_content['Attribute Data'],
+        entity_solution=fiware_node_content['Attribute Solution'],
+        domain=fiware_node_content['Domain']
+    )
+
+    fiware_run = threading.Thread(target=fiware_node.run)
+
+    try:
+        fiware_run.start()
+    except:
+        fiware_run.join()
+
+    return jsonify({'message': 'OK'})
+
+@app.route('/context_broker/data', methods=['GET', 'POST'])
+def add_data():
+
+    content = request.json
+
+    global fiware_node
+    # TODO change when :
+    #   Failed to post data: 413 Client Error: Content Too Large for url: http://localhost:1026/v2/entities
+    # is solved
+    #  fiware_node.post_data(content['data'])
+    fiware_node.post_data('HELLO WORLD!!!!!')
+
+    return jsonify({'message': 'OK'})
+
+@app.route('/context_broker/solution', methods=['GET', 'POST'])
+def get_solution():
+
+    global fiware_node
+    solution = fiware_node.get_inference()
+
+    return jsonify(solution)
 
 
 if __name__ == "__main__":
