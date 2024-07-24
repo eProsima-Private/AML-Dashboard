@@ -93,6 +93,8 @@ class CustomModelListener(ModelListener):
 
         global statistics_data
         statistics_data = pkl.loads(bytes(statistics.to_vector()))
+        global statistics_server_id
+        statistics_server_id = statistics.server_id()
 
         print('\n\nStatistics received: \n')
         print(statistics_data)
@@ -242,7 +244,8 @@ def add_statistics():
 @app.route('/fetcher/model', methods=['GET', 'POST'])
 def add_model():
 
-    model_receiver_node.request_model()
+    global statistics_server_id
+    model_receiver_node.request_model(statistics_server_id)
 
     global model_data
 

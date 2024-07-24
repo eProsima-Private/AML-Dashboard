@@ -3,18 +3,15 @@ import sys
 import json
 import os
 
-import aml_engine as aml
-from aml_engine import bitarray
-from aml_engine import (
-    Atom,
-    Model,
-    Relation,
-)
+import aml_engine
+
+from aml_engine import amlSimpleLibrary as sc
+from aml_engine import amlAuxiliaryLibrary as ql
+
+from aml_engine.aml_fast.amlFastBitarrays import bitarray
 from aml_engine.amldl import (
     load_embedding,
     F,
-    M,
-    S,
 )
 
 RANSEED = 522060
@@ -115,19 +112,19 @@ class batchHandler:
         self.maxnSize = maxnSize
         self.balance = balance
         self.bestAverage = 1
-        self.maxSizeOfReserve = len(self.batchLearner.reserve)
+        self.maxSizeOfReserve = len(self.batchLearner.unionModel)
         self.extendedPositives = 0
         self.stored = []
 
     def getBatchSizes(self):
-        average = (self.balance * self.batchLearner.FPR + self.batchLearner.FNR) / (
+        average = (self.balance * self.batchLearner.vars.FPR + self.batchLearner.vars.FNR) / (
             1 + self.balance
         )
-        sizeOfReserve = len(self.batchLearner.reserve)
+        sizeOfReserve = len(self.batchLearner.unionModel)
 
         if sizeOfReserve > self.maxSizeOfReserve:
             self.pBatchSize = min(1.02 * self.pBatchSize, self.maxpSize)
-            if self.batchLearner.FNR < self.balance * self.batchLearner.FPR:
+            if self.batchLearner.vars.FNR < self.balance * self.batchLearner.vars.FPR:
                 self.nBatchSize = min(1.02 * self.nBatchSize, self.maxnSize)
                 self.extendedPositives = 0.98 * self.extendedPositives
         else:
@@ -141,18 +138,18 @@ class batchHandler:
         return self.pBatchSize, self.nBatchSize
 
     def enforce(self, pbatch, nbatch):
-        alg = self.batchLearner.alg
+        alg = self.batchLearner.model
 
         print("<Select for storing...", end="", flush=True)
         target = alg.atomization
-        las = aml.calculateLowerAtomicSegment(
+        las = sc.calculateLowerAtomicSegment(
             target, alg.cmanager.getConstantSet(), True
         )
-        trainSpace = aml.spaceClass()
+        trainSpace = sc.spaceClass()
         for rel in pbatch:
             if rel.region != 0:
                 rel.wL = trainSpace.add(rel.L)
-                rel.wH = trainSpace.add(rel.H)
+                rel.wH = trainSpace.add(rel.R)
         trainSpace.calculateLowerAtomicSegments(target, las)
         tostore = []
         for rel in pbatch:
@@ -167,9 +164,7 @@ class batchHandler:
         pbatchExtended = pbatch.copy()
         pbatchExtended.extend(self.stored)
 
-        self.batchLearner.addNegativeRelations(nbatch)
-        self.batchLearner.addPositiveRelations(pbatchExtended)
-        self.batchLearner.enforce()
+        self.batchLearner.enforce(pbatchExtended, nbatch)
 
         tostore.extend(self.stored)
         self.stored = tostore[: int(self.extendedPositives)]
@@ -188,9 +183,7 @@ def batchLearning(
     cReset = "\u001b[0m"
 
     for i in range(params.numberOfConstants):
-        c, alg.atomization = alg.cmanager.setNewConstant(
-            alg.atomization, alg.epoch, alg.generation
-        )
+        c = alg.cmanager.setNewConstantIndex()
 
     testResult = "none"
     testResultOnReserve = "none"
@@ -215,14 +208,14 @@ def batchLearning(
         ]
         ex += getExamples(counterExamples[1], nBatchSize)
         for L, H, region in ex:
-            nRel = Relation(L, H, positive=False, region=region)
+            nRel = sc.duple(L, H, positive=False, generation=alg.generation, region=region)
             nbatch.append(nRel)
 
         pbatch = []
         ex = [(bitarray(e.rl_L.s), bitarray(e.rl_H.s), e.region) for e in examples[0]]
         ex += getExamples(examples[1], pBatchSize)
         for L, H, region in ex:
-            pRel = Relation(L, H, positive=True, region=region)
+            pRel = sc.duple(L, H, positive=True, generation=alg.generation, region=region)
             pbatch.append(pRel)
         print(">")
 
@@ -236,9 +229,9 @@ def batchLearning(
 
         if i % SAVE_EVERY == 0:
             path_save_i = args_params["path_save_model"]
-            aml.saveAtomizationOnFile(
-                batchLearner.lastReserve,
-                batchLearner.alg.cmanager,
+            ql.saveAtomizationOnFileUsingBitarrays(
+                batchLearner.lastUnionModel,
+                batchLearner.model.cmanager,
                 f"{path_save_i}/sensors_{i}_{os.getpid()}",
             )
 
@@ -246,9 +239,9 @@ def batchLearning(
             f"{cOrange}BATCH#:{cReset}",
             f"{cOrange}{i}{cReset}",
             "seen (",
-            batchLearner.pcount,
+            batchLearner.vars.pcount,
             ",",
-            batchLearner.ncount,
+            batchLearner.vars.ncount,
             ")  EPOCH:",
             alg.epoch,
             "batchSize(",
@@ -262,12 +255,12 @@ def batchLearning(
             "   reserve",
             # strReportError,
             "   reserve size",
-            len(batchLearner.reserve),
+            len(batchLearner.unionModel),
         )
 
     print()
     print()
-    return batchLearner.alg.cmanager, batchLearner.lastReserve
+    return batchLearner.model.cmanager, batchLearner.lastUnionModel
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -276,8 +269,7 @@ def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test,
     random.seed(RANSEED)
     sys.setrecursionlimit(100000000)
 
-    alg = aml.embedder()
-    alg.verbose = True
+    alg = sc.model()
 
     # This can be read from the input file
     params = dict()
@@ -301,9 +293,8 @@ def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test,
         constantNames = [el.key for el in F("constants pending transfer to algebra").r]
 
         for name in constantNames:
-            alg.cmanager.setNewConstantWithName(
-                name, alg.atomization, alg.epoch, alg.generation
-            )
+            alg.cmanager.setNewConstantIndexWithName(
+                name)
 
         p = F("inclusions").r
         n = F("exclusions").r
@@ -347,7 +338,7 @@ def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test,
 
     args_params = params
 
-    batchLearner = aml.batchLearner(alg)
+    batchLearner = ql.batchLearner(alg)
 
     params = trainingParameters()
     params.balance = 1
@@ -364,10 +355,10 @@ def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test,
     byQuotient = False
     params.numberOfConstants = len(constantNames)
 
-    batchLearner.useReduceIndicators = useReduceIndicators
-    batchLearner.enforceTraceConstraints = True
-    batchLearner.byQuotient = byQuotient
-    batchLearner.storePositives = False
+    batchLearner.params.useReduceIndicators = useReduceIndicators
+    batchLearner.params.enforceTraceConstraints = True
+    batchLearner.params.byQuotient = byQuotient
+    batchLearner.params.storePositives = False
 
     res = batchLearning(
         batchLearner,

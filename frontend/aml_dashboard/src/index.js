@@ -206,8 +206,8 @@ b_train_AML.$click.subscribe( async () => {
   }
 
   const n_job = n_jobs.$value.get().toString();
-  const n_iter = features_values[0].value.toString();
-  const percentage_data = features_values[1].value.toString();
+  const n_iter = features.parameters['Iterations'].value;
+  const percentage_data = features.parameters['Percentage of data'].value;
 
   fetch(url_train + n_job + '/' + n_iter + '/' + percentage_data, {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
