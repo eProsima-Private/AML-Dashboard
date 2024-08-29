@@ -16,7 +16,21 @@ If **AML-IP** is not already installed in your system, follow one of the methods
 
 ### Requirements
 
-Before proceeding further, ensure that you have **npm** (8.5.1) and **nodejs** (v12.22.9) installed on your system. If not, install them using the following commands:
+Before proceeding further, ensure that you have all requirements installed in your system. 
+Firstly, some Python dependencies are required. This version of the AML-Dashboard uses `Python3.11`, installed in a virtual environment to install such dependencies, thus avoiding polluting the user's installation. 
+
+Create a virtual environment and install Python dependencies.
+
+```bash   
+    python3 -m venv fastdds-docs-venv
+    source fastdds-docs-venv/bin/activate
+    wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/requirements.txt
+    pip3 install -r requirements.txt
+```
+
+* Note: pipx can also be used for users who prefer that as an alternative for managing Python packages in isolated environments.
+
+Install **npm** (8.5.1) and **nodejs** (v12.22.9) using the following commands:
 
 ```bash
 sudo apt install -y npm nodejs
@@ -29,12 +43,14 @@ npm -v
 node -v
 ```
 
-Finally, navigate to the [`frontend/aml_dashboard`](frontend/aml_dashboard) directory and install the frontend dependencies:
+Navigate to the [`frontend/aml_dashboard`](frontend/aml_dashboard) directory and install the frontend dependencies:
 
 ```bash
 cd frontend/aml_dashboard
 npm i
 ```
+
+Finally, ensure that FIWARE Context Broker is correctly installed, following the steps provided [here](https://github.com/telefonicaid/fiware-orion/blob/master/docker/README.md#1-the-fastest-way).
 
 By following these steps, you'll have AML-Dashboard up and running, equipped with all the necessary components and dependencies.
 
@@ -188,13 +204,15 @@ Effortlessly train models using either AML or Neural Network.
 
 To train a model using AML, follow these steps:
 
+* Note: Before starting, please ensure that at least one **Computing Node** is running to facilitate the training process.
+
 1. Specify the number of parallel trainings (executions) you wish to run.
 2. Define the number of iterations per execution.
 3. Set the percentage of dataset to distribute in each execution.
 4. Click on the `Train` button in the *AML Training Launcher* to initiate the training process.
 5. Once the training is completed, the model status will appear as **Finished :)** in the *AML Status*.
 
-* Please ensure that at least one **Computing Node** is running to facilitate the training process.
+
 
 <div align="center">
   <img src=".figures/aml-dashboard_training.png" width="750">
@@ -206,12 +224,14 @@ Retrieve trained AML Models effortlessly.
 
 To fetch a model, follow these steps:
 
+* Note: make sure that at least one **Model Manager Sender Node** is running to facilitate the model fetching process.
+
 1. Click on the `Search for statistics` button in the *AML Statistics Fetcher*.
 2. Once the statistics are received, the status will appear as **Statistics received !** in the *AML Collaborative Learning Status*.
 3. Click on the `Request model` button in the *AML Model Fetcher*.
 4. Once the model is received, the status will change to **Model received !** in the *AML Collaborative Learning Status*.
 
-* Make sure that at least one **Model Manager Sender Node** is running to facilitate the model fetching process.
+
 
 <div align="center">
   <img src=".figures/aml-dashboard_fetching.png" width="750">
@@ -223,10 +243,12 @@ Effortlessly predict the output of a batch of inputs using an AML Model.
 
 To predict the output of a dataset, follow these steps:
 
+* Note: Before staring, ensure that you have access to at least one AML Model to facilitate the batch prediction process.
+
 1. Click on the `Update predictions` button in the *Algebraic Machine Learning*.
 2. The predictions will be displayed in the *Results Algebraic Machine Learning* plot.
 
-* Ensure that you have access to at least one AML Model to facilitate the batch prediction process.
+
 
 <div align="center">
   <img src=".figures/aml-dashboard_batch_prediction.png" width="750">
@@ -238,10 +260,12 @@ Experience real-time image prediction, utilizing either an AML Model or a Neural
 
 To predict the output of webcam images in real-time using an AML Model, follow these steps:
 
+* Note: Before starting, ensure that you have access to at least one AML Model to facilitate the real-time prediction process.
+
 1. Toggle the `prediction` switch in the *Predict for AML* section and activate the `video` switch in the *webcam* section.
 2. The predictions will be displayed in the *Results AML* plot.
 
-* Ensure that you have access to at least one AML Model to facilitate the real-time prediction process.
+
 
 <div align="center">
   <img src=".figures/aml-dashboard_real_time.png" width="750">
@@ -253,6 +277,8 @@ Effortlessly manage the Context Broker, allowing you to create and update data t
 
 Here's how to use it:
 
+* Note: Before starting, make sure that the Context Broker is running to ensure successful interaction and data exchange.
+
 1. Specify the Fiware Node parameters and Context Broker entity ID and attributes.
 2. Click on the `Create` button to create the node using the provided parameters.
 3. The *Fiware Node Status* will update to indicate whether the node has been created successfully.
@@ -261,7 +287,7 @@ Here's how to use it:
 5. The *Data Status* will update to indicate whether the data has been successfully posted.
 6. Once the solution is received, it will be displayed in the *Context Broker Solution* section and the *Solution Status* will update to **Solution received !** to indicate successful retrieval.
 
-* Make sure that the Context Broker is running to ensure successful interaction and data exchange.
+
 
 <div align="center">
   <img src=".figures/aml-dashboard_context_broker.png" width="750">

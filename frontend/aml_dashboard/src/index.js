@@ -739,7 +739,7 @@ dash.page('Training').sidebar(b_train_AML, n_jobs, controls, textAMLTrainStatus)
 dash.page('Fetching').sidebar(collaborative_status).use(search_statistics, statistics_received, request_model, model_received);
 dash.page('Batch Prediction').use( [predictButtonAML, confMatAML], [predictButton, confMat]);
 dash.page('Real-time Prediction').sidebar(togAML, togNN, input).use([plotResultsNN, plotResultsAML]);
-dash.page('Context broker').sidebar(create_fiware, fiware_node, fiware_node_status).use(post_data, upload_data, data_status, get_solution, solution_status);
+dash.page('Context broker').sidebar(create_fiware, fiware_node, fiware_node_status).use(upload_data, post_data, data_status, get_solution, solution_status);
 dash.page('Status').use(tst);
 dash.settings.dataStores(store, store2).datasets(trainingSet).models(classifier).predictions(batchMLP);
 

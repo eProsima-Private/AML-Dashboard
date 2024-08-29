@@ -16,6 +16,7 @@ import pickle as pkl
 import signal
 import os
 
+
 from py_utils.wait.BooleanWaitHandler import BooleanWaitHandler
 
 from amlip_py.node.ModelManagerSenderNode import ModelManagerSenderNode, ModelReplier
@@ -72,11 +73,11 @@ def main():
     print(f'Node created: {model_sender_node.get_id()}. '
           'Already processing models.')
 
-    # e.g. statistics data
+     #e.g. statistics data
     data = {
-        'name': 'MobileNet V1',
-        'size': 56
-    }
+         'name': 'MobileNet V1',
+         'size': 56
+     }
 
     # Start node
     model_sender_node.start(

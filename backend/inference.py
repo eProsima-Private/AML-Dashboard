@@ -62,13 +62,13 @@ def main():
         with open(model_path, 'r') as file:
             json = file.read()
     except FileNotFoundError:
-        print("File not found.")
+        print("Model file not found.")
 
     try:
         with open(training_path, 'r') as file:
             training_set = file.read()
     except FileNotFoundError:
-        print("File not found.")
+        print("Training set file not found.")
 
     global aml_model_predict
     aml_model_predict = process_model_data(json, training_set)

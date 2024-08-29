@@ -8,21 +8,22 @@ from flask import Flask, request, jsonify
 
 from flask_cors import CORS
 
-from py_utils.wait.IntWaitHandler import IntWaitHandler
 from py_utils.wait.BooleanWaitHandler import BooleanWaitHandler
+from py_utils.wait.IntWaitHandler import IntWaitHandler
 
+from amlip_py.node.AsyncEdgeNode import AsyncEdgeNode, InferenceSolutionListener
 from amlip_py.node.AsyncMainNode import AsyncMainNode, SolutionListener
-from amlip_py.types.JobDataType import JobDataType
+from amlip_py.node.FiwareNode import FiwareNode
 from amlip_py.node.ModelManagerReceiverNode import ModelManagerReceiverNode, ModelListener
+from amlip_py.node.StatusNode import StatusListener, StatusNode
+
+from amlip_py.types.AmlipIdDataType import AmlipIdDataType
+from amlip_py.types.InferenceDataType import InferenceDataType
+from amlip_py.types.InferenceSolutionDataType import InferenceSolutionDataType
+from amlip_py.types.JobDataType import JobDataType
 from amlip_py.types.ModelReplyDataType import ModelReplyDataType
 from amlip_py.types.ModelRequestDataType import ModelRequestDataType
 from amlip_py.types.ModelStatisticsDataType import ModelStatisticsDataType
-from amlip_py.types.AmlipIdDataType import AmlipIdDataType
-from amlip_py.node.StatusNode import StatusListener, StatusNode
-from amlip_py.node.AsyncEdgeNode import AsyncEdgeNode, InferenceSolutionListener
-from amlip_py.types.InferenceDataType import InferenceDataType
-from amlip_py.types.InferenceSolutionDataType import InferenceSolutionDataType
-from amlip_py.node.FiwareNode import FiwareNode
 
 status_data = {}
 status_data['nodes'] = []
