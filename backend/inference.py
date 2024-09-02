@@ -14,6 +14,7 @@
 
 import json
 import os
+import re
 import signal
 
 from amlip_py.node.AsyncInferenceNode import AsyncInferenceNode, InferenceReplier
@@ -49,24 +50,47 @@ def main():
     """Execute main routine."""
 
     ## Prepare model
+    
+    #
+    def use_most_recent_file(downloads_path, required_file): 
+        """ 
+        Function that selects the model_ or training_file_ that was most recently downloaded.
+
+        Arguments:
+        downloads_path: Path to the Downloads directory
+        required_file: Prefix of the file to be selected
+        
+        Returns: path to the most recent file"""
+        # Find all files with the name requuired_file_*.json in the folder
+        file_list = [f for f in os.listdir(downloads_path) if re.search(f'(^{required_file}\([0-7]*\)|^{required_file})\.json$', f)]
+        # Sort the file list by creation time in descending order
+        file_list.sort(key=lambda x: os.path.getctime(os.path.join(downloads_path, x)), reverse=True)
+        # Select the most recent file
+        try:
+
+            most_recent_file= file_list[0]
+        # Create the full path to the most recent file
+            most_recent_file_path = os.path.join(downloads_path, most_recent_file)
+        # Return the path to the most recent file
+            return most_recent_file_path
+        except IndexError:
+            print(f'{required_file} not found')
+            exit(1)
     # Get the path to the Downloads directory
     downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
 
-    # Create the full path to the file
-    model_path = os.path.join(downloads_path, "model_.json")
-    training_path = os.path.join(downloads_path, "training_set_.json")
+    # Create the full path to the most recent file
+    training_path=use_most_recent_file(downloads_path, "training_set_")
+    model_path=use_most_recent_file(downloads_path, "model_")
 
-    try:
-        with open(model_path, 'r') as file:
-            json = file.read()
-    except FileNotFoundError:
-        print("Model file not found.")
+    with open(model_path, 'r') as file:
+        json = file.read()
 
-    try:
-        with open(training_path, 'r') as file:
-            training_set = file.read()
-    except FileNotFoundError:
-        print("Training set file not found.")
+
+
+    with open(training_path, 'r') as file:
+        training_set = file.read()
+
 
     global aml_model_predict
     aml_model_predict = process_model_data(json, training_set)

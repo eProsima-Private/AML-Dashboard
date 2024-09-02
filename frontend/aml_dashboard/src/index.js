@@ -224,13 +224,19 @@ b_train_AML.$click.subscribe( async () => {
   .then(response => response.json())
   .then(async json => {
     console.log(json);
-    console.log('RECEIVED');
+    if (json.Error) {
+      console.log('An error occurred', json.Error);
+      textAMLTrainStatus.$value.set('<h1>Error: ' + json.Error + '</h1> ');
 
-    save_to_file(json, "model_.json");
+    }
+    else {
+      console.log('RECEIVED');
 
-    aml_model['ready'] = true;
+      save_to_file(json, "model_.json");
 
-    textAMLTrainStatus.$value.set('<h1>Finished :)</h1> ');
+      aml_model['ready'] = true;
+
+      textAMLTrainStatus.$value.set('<h1>Finished :)</h1> ');}
 
   });
 });
@@ -276,12 +282,17 @@ search_statistics.$click.subscribe( async () => {
   .then(response => response.json())
   .then(async json => {
     console.log(json);
-    console.log('STATISTICS RECEIVED');
+    if (json.message=='Timeout reached.') {
+      console.log('An error occurred', json.message);
+      collaborative_status.$value.set('<h1>Error while retrieving statistics: ' + json.message + '</h1> ');
+      statistics_received.$value.set('No statistics received');
+    } else{
+      console.log('STATISTICS RECEIVED');
+      const name = json.name; // Extracting the value of 'name' field from the JSON response
+      collaborative_status.$value.set('<h1>Statistics received !</h1> ');
+      statistics_received.$value.set('<h2>Statistics received: ' + name + '</h2>');
+    }
 
-    const name = json.name; // Extracting the value of 'name' field from the JSON response
-
-    collaborative_status.$value.set('<h1>Statistics received !</h1> ');
-    statistics_received.$value.set('<h2>Statistics received: ' + name + '</h2>');
 
   });
 
@@ -318,15 +329,18 @@ request_model.$click.subscribe( async () => {
     .then(response => response.json())
     .then(async json => {
       console.log(json);
-      console.log('MODEL RECEIVED');
-
-      save_to_file(json, "model_.json");
-
-      aml_model['ready'] = true;
-
-      collaborative_status.$value.set('<h1>Model received !</h1> ');
-      model_received.$value.set('<h2>Model received</h2>');
-
+      if (json.message=='Timeout reached.') {
+        console.log('An error occurred', json.message);
+        //aml_model['ready'] = false;
+        collaborative_status.$value.set('<h1>Error while retrieving model: ' + json.message + '</h1> ');
+        model_received.$value.set('<h2>Error while retrieving model: ' + json.message + '</h2>');
+      } else{
+        console.log('MODEL RECEIVED');
+        save_to_file(json, "model_.json");
+        aml_model['ready'] = true;
+        collaborative_status.$value.set('<h1>Model received !</h1> ');
+        model_received.$value.set('<h2>Model received</h2>');
+      }
     })
   }
 })
@@ -344,7 +358,7 @@ const predictButton = button('Update predictions');
 predictButton.title = 'Neural Network';
 
 predictButton.$click.subscribe(async () => {
-  if (!classifier.ready) {
+  if (! classifier.ready ) {
     throwError(new Error('No classifier has been trained'));
   }
   await batchMLP.clear();
@@ -379,9 +393,13 @@ const mockAMLModel = {
     .then(response => response.json())
     .then(async json => {
       console.log(json);
-      console.log('PREDICTION RECEIVED');
-
-      return json;
+      if (json.Error) {
+        console.log('An error occurred', json.Error);
+        throwError(new Error(json.Error));
+        return json;
+      } else {
+        console.log('PREDICTION RECEIVED');
+        return json;}
     });
   }
 };
@@ -389,13 +407,13 @@ const mockAMLModel = {
 predictButtonAML.$click.subscribe(async () => {
   if (! aml_model['ready']) {
     throwError(new Error('No AML model has been trained'));
-  }
+  }else {
 
   await batchAML.clear();
   await batchAML.predict(mockAMLModel, trainingSet);
 
   console.log('Predictions done');
-  console.log(batchAML.items().service);
+  console.log(batchAML.items().service);}
 });
 
 
@@ -409,7 +427,7 @@ togNN.$checked.subscribe((checked) => {
   if (checked && !classifier.ready) {
     throwError(new Error('No classifier has been trained'));
     setTimeout(() => {
-      tog.$checked.set(false);
+      togNN.$checked.set(false);
     }, 500);
   }
 });
@@ -541,9 +559,13 @@ create_fiware.$click.subscribe( async () => {
   .then(response => response.json())
   .then(async json => {
     console.log(json);
-    console.log('CREATED');
 
-    fiware_node_status.$value.set('<h1>Created !</h1> ');
+    if (json.message=='Error') {
+      console.log('Fiware Node not created');
+      fiware_node_status.$value.set('<h1>Fiware Node could not be created</h1> ');
+    } else if (json.message=='OK') {
+      console.log('CREATED');
+      fiware_node_status.$value.set('<h1>Created !</h1> '); }
 
   });
 });
@@ -554,6 +576,9 @@ post_data.$click.subscribe( async () => {
   if (upload_data.$images.value == undefined)
   {
     throwError(new Error('No data has been uploaded'));
+    data_status.$value.set('<h1>Data has not been uploaded</h1> ');
+  } else if(fiware_node_status.$value.get() == '<h1>Fiware Node could not be created</h1> ') {
+    throwError(new Error('No Fiware Node has been created'));
   }
   else
   {
@@ -591,40 +616,47 @@ post_data.$click.subscribe( async () => {
     })
     .then(response => response.json())
     .then(async json => {
-      console.log('SENDED');
+      if (json.Error) {
+        console.log('Data not sended');
+        data_status.$value.set('<h1>Data could not be sended</h1> ');
+      } else if (json.message=='OK') {
+        
+          console.log('SENDED');
+          data_status.$value.set('<h1>Sended !</h1> ');
 
-      data_status.$value.set('<h1>Sended !</h1> ');
+          solution_status.$value.set('<h1>Waiting for solution...</h1> ');
 
-      solution_status.$value.set('<h1>Waiting for solution...</h1> ');
-
-      // Get the solution from the Context Broker
-      fetch(url_context_broker + 'solution', {
-        method: "GET", // *GET, POST, PUT, DELETE, etc.
-        mode: "cors", // no-cors, *cors, same-origin
-        cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
-        credentials: "omit", // include, *same-origin, omit
-        headers: {
-          "Content-Type": "application/json",
-        },
-        redirect: "follow", // manual, *follow, error
-        referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
-      })
-      .then(response => response.json())
-      .then(async json => {
-        console.log(json);
-        console.log('SOLUTION RECEIVED');
-
-        var solution_attr = fiware_params.parameters['Attribute Solution'].value;
-        var solution = json[solution_attr];
-
-        var solution_string = JSON.stringify(solution, null, 4);
-        console.log(solution_string);
-
-        get_solution.$value.set(`<pre>${solution_string}</pre>`);
-
-        solution_status.$value.set('<h1>Solution received !</h1> ');
-
+          // Get the solution from the Context Broker
+          fetch(url_context_broker + 'solution', {
+            method: "GET", // *GET, POST, PUT, DELETE, etc.
+            mode: "cors", // no-cors, *cors, same-origin
+            cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+            credentials: "omit", // include, *same-origin, omit
+            headers: {
+              "Content-Type": "application/json",
+            },
+            redirect: "follow", // manual, *follow, error
+            referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+          })
+          .then(response => response.json())
+          .then(async json => {
+            console.log(json);
+            if (json.Error) {
+              console.log('Solution not received');
+              solution_status.$value.set('<h1>Inference could not be done</h1> ');
+              const errorMessage = json.Error; 
+              get_solution.$value.set(`<pre>${errorMessage}</pre>`);
+            } else {
+              console.log('SOLUTION RECEIVED');
+              solution_status.$value.set('<h1>Solution received !</h1> ');
+              var solution_attr = fiware_params.parameters['Attribute Solution'].value;
+              var solution = json[solution_attr];
+              var solution_string = JSON.stringify(solution, null, 4);
+              console.log(solution_string);
+              get_solution.$value.set(`<pre>${solution_string}</pre>`);}
+            
       });
+    }
     });
   }
 });

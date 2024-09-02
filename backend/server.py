@@ -10,6 +10,7 @@ from flask_cors import CORS
 
 from py_utils.wait.BooleanWaitHandler import BooleanWaitHandler
 from py_utils.wait.IntWaitHandler import IntWaitHandler
+from py_utils.wait.WaitHandler import AwakeReason
 
 from amlip_py.node.AsyncEdgeNode import AsyncEdgeNode, InferenceSolutionListener
 from amlip_py.node.AsyncMainNode import AsyncMainNode, SolutionListener
@@ -231,11 +232,20 @@ def add_status():
 
 @app.route('/fetcher/statistics', methods=['GET', 'POST'])
 def add_statistics():
-
+    timeout=10
+    timeout_start = time.time()
+    real_timeout=timeout_start+timeout
+    #print(timeout_start)
     global statistics_data
-
-    while statistics_data is None:
+    #print(real_timeout)
+    #if real_timeout<time.time():
+    while statistics_data is None and time.time()<real_timeout:
+        #print (time.time())
         pass
+
+    if statistics_data is None:
+        print('Timeout reached.')
+        return jsonify({'message': 'Timeout reached.'})
 
     time.sleep(1)  # Sleep for 1 second
 
@@ -245,19 +255,28 @@ def add_statistics():
 @app.route('/fetcher/model', methods=['GET', 'POST'])
 def add_model():
 
+    timeout=30
+    timeout_start = time.time()
+    real_timeout=timeout_start+timeout
+
     global statistics_server_id
     model_receiver_node.request_model(statistics_server_id)
 
     global model_data
-
-    while model_data is None:
+    
+    while model_data is None and time.time()<real_timeout:
+        #print(model_data)
         pass
 
+    if model_data is None:
+        print(model_data)
+        print('Timeout reached.')
+        return jsonify({'message': 'Timeout reached.'})
+    
     time.sleep(1)  # Sleep for 1 second
 
     model = model_data
     model_data = None
-
     return jsonify(model)
 
 @app.route('/train/<nJob>/<nIter>/<percentageData>', methods=['GET', 'POST'])
@@ -274,35 +293,41 @@ def add_message(nJob, nIter, percentageData):
 
     global solution_data
     solution_data = None
+    try:
+        for i in range(n_jobs):
+            # Calculate data
+            # Zip the two lists together to maintain correspondence
+            zipped_data = list(zip(content['x'], content['y']))
 
-    for i in range(n_jobs):
-        # Calculate data
-        # Zip the two lists together to maintain correspondence
-        zipped_data = list(zip(content['x'], content['y']))
+            # Calculate how many items x% is
+            num_items = len(zipped_data) * percentage_data // 100
 
-        # Calculate how many items x% is
-        num_items = len(zipped_data) * percentage_data // 100
+            # Take a random sample of x% of the data
+            sampled_zipped_data = random.sample(zipped_data, num_items)
 
-        # Take a random sample of x% of the data
-        sampled_zipped_data = random.sample(zipped_data, num_items)
+            # Unzip the sampled data back into separate lists
+            sampled_data_x, sampled_data_y = zip(*sampled_zipped_data)
 
-        # Unzip the sampled data back into separate lists
-        sampled_data_x, sampled_data_y = zip(*sampled_zipped_data)
+            # Create job data
+            print(f'Node created: {main_node.get_id()}. Creating job...')
+            job_data = JobDataType('x: ' + json.dumps(sampled_data_x) + ' y: ' + json.dumps(sampled_data_y) + ' n_iter: ' + str(n_iter))
 
-        # Create job data
-        print(f'Node created: {main_node.get_id()}. Creating job...')
-        job_data = JobDataType('x: ' + json.dumps(sampled_data_x) + ' y: ' + json.dumps(sampled_data_y) + ' n_iter: ' + str(n_iter))
-
-        # Sending job
-        print(f'Job data created with string: {job_data}. Sending request...')
-        task_id = main_node.request_job_solution(job_data)
+            # Sending job
+            print(f'Job data created with string: {job_data}. Sending request...')
+            task_id = main_node.request_job_solution(job_data)
+    except ValueError:
+        print('Not enough data provided')
+        return jsonify({'Error': 'Not enough data provided'})
 
     print('All jobs sent. Waiting for solutions...')
-    waiter_job.wait_equal(n_jobs)
-    print('All solutions received.')
-
-    return jsonify(solution_data)
-
+    reason=waiter_job.wait_equal(n_jobs, timeout=60)
+    if reason==AwakeReason.timeout:
+        print('Timeout reached.')
+        return jsonify({'Error': 'Timeout reached.'})
+    else:
+        print('All solutions received.')
+        return jsonify(solution_data)
+    
 @app.route('/inference', methods=['GET', 'POST'])
 def add_inference():
 
@@ -322,40 +347,46 @@ def add_inference():
 
     print(f'Request sent with task id: {task_id}. Waiting inference...')
     # Wait to received solution
-    waiter_inference.wait()
-    print('Inference received.')
-
-    return jsonify(inference_data)
+    reason=waiter_inference.wait(timeout=5)
+    if reason==AwakeReason.timeout:
+        print('Timeout reached.')
+        return jsonify({'Error': 'Timeout reached.'})
+    else:
+        print('Inference received.')
+        return jsonify(inference_data)
 
 @app.route('/context_broker/fiware', methods=['GET', 'POST'])
 def create_fiware_node():
-
-    global fiware_node_content
-    fiware_node_content = request.json
-
-    print(f'Creating Fiware node with data: {fiware_node_content}')
-
-    global fiware_node
-    fiware_node = FiwareNode(
-        name=fiware_node_content['Name'],
-        server_ip=fiware_node_content['Server IP'],
-        server_port=fiware_node_content['Server Port'],
-        context_broker_ip=fiware_node_content['Context Broker IP'],
-        context_broker_port=fiware_node_content['Context Broker Port'],
-        entity_id=fiware_node_content['Entity ID'],
-        entity_data=fiware_node_content['Attribute Data'],
-        entity_solution=fiware_node_content['Attribute Solution'],
-        domain=fiware_node_content['Domain']
-    )
-
-    fiware_run = threading.Thread(target=fiware_node.run)
-
     try:
-        fiware_run.start()
-    except:
-        fiware_run.join()
+        global fiware_node_content
+        fiware_node_content = request.json
 
-    return jsonify({'message': 'OK'})
+        print(f'Creating Fiware node with data: {fiware_node_content}')
+
+        global fiware_node
+        fiware_node = FiwareNode(
+            name=fiware_node_content['Name'],
+            server_ip=fiware_node_content['Server IP'],
+            server_port=fiware_node_content['Server Port'],
+            context_broker_ip=fiware_node_content['Context Broker IP'],
+            context_broker_port=fiware_node_content['Context Broker Port'],
+            entity_id=fiware_node_content['Entity ID'],
+            entity_data=fiware_node_content['Attribute Data'],
+            entity_solution=fiware_node_content['Attribute Solution'],
+            domain=fiware_node_content['Domain']
+        )
+
+        fiware_run = threading.Thread(target=fiware_node.run)
+
+        try:
+            fiware_run.start()
+        except:
+            fiware_run.join()
+
+        return jsonify({'message': 'OK'})
+    
+    except Exception as e:
+        return jsonify({'message': 'Error'})
 
 @app.route('/context_broker/data', methods=['GET', 'POST'])
 def add_data():
@@ -369,14 +400,21 @@ def add_data():
     except Exception as e:
         return jsonify({'Error': str(e)})
 
-    return jsonify({'message': 'OK'})
+    if list(json.loads(fiware_node.post_data('HELLO WORLD!!!!!')).keys())[0]=='Error':
+        return jsonify({'Error': f'Failed to post data'})
+    else:
+        fiware_node.post_data('HELLO WORLD!!!!!')
+        return jsonify({'message': 'OK'})
 
 @app.route('/context_broker/solution', methods=['GET', 'POST'])
 def get_solution():
 
+    timeout=20
     global fiware_node
-    solution = fiware_node.get_inference()
-
+    solution = fiware_node.get_inference(timeout)
+    sol=json.loads(solution)
+    if list(sol.keys())[0]=='Error':
+        return jsonify({'Error': 'Timeout reached.'})
     return jsonify(solution)
 
 
