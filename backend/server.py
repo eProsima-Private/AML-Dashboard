@@ -97,7 +97,8 @@ class CustomModelListener(ModelListener):
         statistics_data = pkl.loads(bytes(statistics.to_vector()))
         global statistics_server_id
         statistics_server_id = statistics.server_id()
-
+        global waiter_statistics
+        waiter_statistics.open()
         print('\n\nStatistics received: \n')
         print(statistics_data)
         print('\n')
@@ -111,9 +112,11 @@ class CustomModelListener(ModelListener):
         global model_data
         model_data = json.loads(model.to_string())
 
+        global waiter_model
+        waiter_model.open()
         print('\nReply received\n')
-
-        return True
+        
+        #return True
 
 # Custom request listener
 class CustomSolutionListener(SolutionListener):
@@ -232,18 +235,11 @@ def add_status():
 
 @app.route('/fetcher/statistics', methods=['GET', 'POST'])
 def add_statistics():
-    timeout=10
-    timeout_start = time.time()
-    real_timeout=timeout_start+timeout
-    #print(timeout_start)
+    global waiter_statistics
+    waiter_statistics = BooleanWaitHandler(True, False)
     global statistics_data
-    #print(real_timeout)
-    #if real_timeout<time.time():
-    while statistics_data is None and time.time()<real_timeout:
-        #print (time.time())
-        pass
-
-    if statistics_data is None:
+    reason=waiter_statistics.wait(timeout=10)
+    if reason==AwakeReason.timeout:
         print('Timeout reached.')
         return jsonify({'message': 'Timeout reached.'})
 
@@ -255,20 +251,14 @@ def add_statistics():
 @app.route('/fetcher/model', methods=['GET', 'POST'])
 def add_model():
 
-    timeout=30
-    timeout_start = time.time()
-    real_timeout=timeout_start+timeout
-
+    global waiter_model
+    waiter_model = BooleanWaitHandler(True, False)
     global statistics_server_id
     model_receiver_node.request_model(statistics_server_id)
-
     global model_data
     
-    while model_data is None and time.time()<real_timeout:
-        #print(model_data)
-        pass
-
-    if model_data is None:
+    reason=waiter_model.wait(timeout=30)
+    if reason==AwakeReason.timeout:
         print(model_data)
         print('Timeout reached.')
         return jsonify({'message': 'Timeout reached.'})
@@ -347,7 +337,7 @@ def add_inference():
 
     print(f'Request sent with task id: {task_id}. Waiting inference...')
     # Wait to received solution
-    reason=waiter_inference.wait(timeout=5)
+    reason=waiter_inference.wait(timeout=30)
     if reason==AwakeReason.timeout:
         print('Timeout reached.')
         return jsonify({'Error': 'Timeout reached.'})
@@ -400,11 +390,13 @@ def add_data():
     except Exception as e:
         return jsonify({'Error': str(e)})
 
-    if list(json.loads(fiware_node.post_data('HELLO WORLD!!!!!')).keys())[0]=='Error':
-        return jsonify({'Error': f'Failed to post data'})
-    else:
+    try:
         fiware_node.post_data('HELLO WORLD!!!!!')
         return jsonify({'message': 'OK'})
+    
+    except Exception as e:
+        print(f'Failed to post data: {e}')
+        return jsonify({'Error': f'Failed to post data'})
 
 @app.route('/context_broker/solution', methods=['GET', 'POST'])
 def get_solution():
