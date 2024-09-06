@@ -215,7 +215,7 @@ To train a model using AML, follow these steps:
 
 
 <div align="center">
-  <img src=".figures/aml-dashboard_training.png" width="750">
+  <img src=".figures/aml-dashboard_trained.png" width="750">
 </div>
 
 ### Fetching Tab
@@ -234,7 +234,7 @@ To fetch a model, follow these steps:
 
 
 <div align="center">
-  <img src=".figures/aml-dashboard_fetching.png" width="750">
+  <img src=".figures/aml-dashboard_fetched.png" width="750">
 </div>
 
 ### Batch Prediction Tab
@@ -251,7 +251,7 @@ To predict the output of a dataset, follow these steps:
 
 
 <div align="center">
-  <img src=".figures/aml-dashboard_batch_prediction.png" width="750">
+  <img src=".figures/aml-dashboard_batch_prediction_done.png" width="750">
 </div>
 
 ### Real-Time Prediction Tab
@@ -268,7 +268,7 @@ To predict the output of webcam images in real-time using an AML Model, follow t
 
 
 <div align="center">
-  <img src=".figures/aml-dashboard_real_time.png" width="750">
+  <img src=".figures/aml-dashboard_real_time_done.png" width="750">
 </div>
 
 ### Context Broker Tab
@@ -290,7 +290,7 @@ Here's how to use it:
 
 
 <div align="center">
-  <img src=".figures/aml-dashboard_context_broker.png" width="750">
+  <img src=".figures/aml-dashboard_context_broker_created.png" width="750">
 </div>
 
 ### Status Tab
@@ -306,5 +306,5 @@ Here's what it entails:
 The status tab automatically refreshes every second, ensuring you receive real-time updates and information about the network's status.
 
 <div align="center">
-  <img src=".figures/aml-dashboard_status.png" width="750">
+  <img src=".figures/aml-dashboard_status_nodes_created.png" width="750">
 </div>

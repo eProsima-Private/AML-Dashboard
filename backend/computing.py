@@ -56,8 +56,6 @@ class CustomJobReplier(JobReplier):
 
 def main():
     """Execute main routine."""
-    # Initialize random number generator
-    # TODO
 
     # Create node
     print('Starting Async Computing Node Py execution. Creating Node...')

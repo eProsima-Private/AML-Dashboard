@@ -70,7 +70,6 @@ def build_aml_model(json_info):
         map_atoms[cl_nm] = {'inputs': json_info['classes'][cl_nm][0], 'atoms': lst_atoms_sets}
 
     def get_input_indexes(x_raw):
-        # print("get_input_indexes x_raw: ", x_raw)
         input_indexes = []
         for xi in range(len(x_raw)):
             v = x_raw[xi]
