@@ -73,7 +73,11 @@ def build_aml_model(json_info):
         input_indexes = []
         for xi in range(len(x_raw)):
             v = x_raw[xi]
+            # TODO: IndexError: list index out of range
+            # - len(json_info['edges']): 50
+            # - len(x_raw): 200704
             edges = json_info['edges'][xi]
+
             i = 0
             while i < len(edges) and v > edges[i]:
                 i += 1
