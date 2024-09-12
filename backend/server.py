@@ -32,6 +32,11 @@ statistics_data = None
 model_data = None
 solution_data = None
 
+
+waiter_statistics=BooleanWaitHandler(True, False)
+
+waiter_model=BooleanWaitHandler(True, False)
+
 app = Flask(__name__)
 CORS(app)
 
@@ -97,11 +102,13 @@ class CustomModelListener(ModelListener):
         statistics_data = pkl.loads(bytes(statistics.to_vector()))
         global statistics_server_id
         statistics_server_id = statistics.server_id()
-        global waiter_statistics
-        waiter_statistics.open()
+        
         print('\n\nStatistics received: \n')
         print(statistics_data)
         print('\n')
+        
+        waiter_statistics.open()
+
 
         return True
 
@@ -112,11 +119,11 @@ class CustomModelListener(ModelListener):
         global model_data
         model_data = json.loads(model.to_string())
 
-        global waiter_model
-        waiter_model.open()
         print('\nReply received\n')
         
-        #return True
+        waiter_model.open()
+
+        return True
 
 # Custom request listener
 class CustomSolutionListener(SolutionListener):
@@ -235,43 +242,51 @@ def add_status():
 
 @app.route('/fetcher/statistics', methods=['GET', 'POST'])
 def add_statistics():
-    global waiter_statistics
-    waiter_statistics = BooleanWaitHandler(True, False)
+
+    waiter_statistics.close()
+
     global statistics_data
-    reason=waiter_statistics.wait(timeout=10)
-    if reason==AwakeReason.timeout:
-        print('Timeout reached.')
-        return jsonify({'message': 'Timeout reached.'})
+
+    if statistics_data is None:
+
+        timeout=30
+        reason=waiter_statistics.wait(timeout)
+        if reason==AwakeReason.timeout:
+            print('Timeout reached.')
+            waiter_statistics.close()
+            return jsonify({'Error': 'Timeout reached.'})
 
     time.sleep(1)  # Sleep for 1 second
-
+    waiter_statistics.close()
     return jsonify(statistics_data)
 
 
 @app.route('/fetcher/model', methods=['GET', 'POST'])
-def add_model():
-
+def add_model():                                       
+    timeout=30
     global waiter_model
-    waiter_model = BooleanWaitHandler(True, False)
+    waiter_model.close()
     global statistics_server_id
     model_receiver_node.request_model(statistics_server_id)
     global model_data
     
-    reason=waiter_model.wait(timeout=30)
+    reason=waiter_model.wait(timeout)
     if reason==AwakeReason.timeout:
         print(model_data)
         print('Timeout reached.')
-        return jsonify({'message': 'Timeout reached.'})
+        waiter_model.close()
+        return jsonify({'Error': 'Timeout reached.'})
     
     time.sleep(1)  # Sleep for 1 second
 
     model = model_data
     model_data = None
+    waiter_model.close()
     return jsonify(model)
 
 @app.route('/train/<nJob>/<nIter>/<percentageData>', methods=['GET', 'POST'])
 def add_message(nJob, nIter, percentageData):
-
+    timeout=60
     global waiter_job
     waiter_job = IntWaitHandler(True)
 
@@ -306,11 +321,11 @@ def add_message(nJob, nIter, percentageData):
             print(f'Job data created with string: {job_data}. Sending request...')
             task_id = main_node.request_job_solution(job_data)
     except ValueError:
-        print('Not enough data provided')
-        return jsonify({'Error': 'Not enough data provided'})
+        print(f'The data provided is not correct: {ValueError}.')
+        return jsonify({'Error': 'The data provided is not correct.'})
 
     print('All jobs sent. Waiting for solutions...')
-    reason=waiter_job.wait_equal(n_jobs, timeout=60)
+    reason=waiter_job.wait_equal(n_jobs, timeout)
     if reason==AwakeReason.timeout:
         print('Timeout reached.')
         return jsonify({'Error': 'Timeout reached.'})
@@ -347,13 +362,10 @@ def add_inference():
 
 @app.route('/context_broker/fiware', methods=['GET', 'POST'])
 def create_fiware_node():
+    global fiware_node_content
+    fiware_node_content = request.json
+    global fiware_node
     try:
-        global fiware_node_content
-        fiware_node_content = request.json
-
-        print(f'Creating Fiware node with data: {fiware_node_content}')
-
-        global fiware_node
         fiware_node = FiwareNode(
             name=fiware_node_content['Name'],
             server_ip=fiware_node_content['Server IP'],
@@ -365,21 +377,21 @@ def create_fiware_node():
             entity_solution=fiware_node_content['Attribute Solution'],
             domain=fiware_node_content['Domain']
         )
-
-        fiware_run = threading.Thread(target=fiware_node.run)
-
-        try:
-            fiware_run.start()
-        except:
-            fiware_run.join()
-
-        return jsonify({'message': 'OK'})
-    
     except Exception as e:
-        return jsonify({'message': 'Error'})
+        print(f'There has been an error while trying to create the Fiware Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to create the Fiware Node {e}'})
+    fiware_run = threading.Thread(target=fiware_node.run)
+
+    try:
+        fiware_run.start()
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        fiware_run.join()
+        return jsonify({'Error': f'There has been an error while trying to create the Fiware Node {e}'})
 
 @app.route('/context_broker/data', methods=['GET', 'POST'])
 def add_data():
+    timeout=30
 
     content = request.json
 
@@ -394,9 +406,12 @@ def add_data():
         fiware_node.post_data('HELLO WORLD!!!!!')
         return jsonify({'message': 'OK'})
     
+    try:
+        fiware_node.post_data(content['data'],timeout)
+        return jsonify({'message': 'OK'})
     except Exception as e:
         print(f'Failed to post data: {e}')
-        return jsonify({'Error': f'Failed to post data'})
+        return jsonify({'Error': f'Failed to post data {e}'})
 
 @app.route('/context_broker/solution', methods=['GET', 'POST'])
 def get_solution():
@@ -405,9 +420,9 @@ def get_solution():
     global fiware_node
     solution = fiware_node.get_inference(timeout)
     sol=json.loads(solution)
-    if list(sol.keys())[0]=='Error':
-        return jsonify({'Error': 'Timeout reached.'})
-    return jsonify(solution)
+    #if list(sol.keys())[0]=='Error':
+    #    return jsonify({'Error': 'Timeout reached.'})
+    return jsonify(sol)
 
 
 if __name__ == "__main__":

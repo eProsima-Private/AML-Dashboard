@@ -228,8 +228,7 @@ b_train_AML.$click.subscribe( async () => {
       console.log('An error occurred', json.Error);
       textAMLTrainStatus.$value.set('<h1>Error: ' + json.Error + '</h1> ');
 
-    }
-    else {
+    } else {
       console.log('RECEIVED');
 
       save_to_file(json, "model_.json");
@@ -282,12 +281,11 @@ search_statistics.$click.subscribe( async () => {
   .then(response => response.json())
   .then(async json => {
     console.log(json);
-    if (json.message=='Timeout reached.') {
-      console.log('An error occurred', json.message);
-      collaborative_status.$value.set('<h1>Error while retrieving statistics: ' + json.message + '</h1> ');
+    if (json.Error) {
+      console.log('An error occurred', json.Error);
+      collaborative_status.$value.set('<h1>Error while retrieving statistics: ' + json.Error + '</h1> ');
       statistics_received.$value.set('No statistics received');
-    } else{
-      console.log('STATISTICS RECEIVED');
+    } else {
       const name = json.name; // Extracting the value of 'name' field from the JSON response
       collaborative_status.$value.set('<h1>Statistics received !</h1> ');
       statistics_received.$value.set('<h2>Statistics received: ' + name + '</h2>');
@@ -329,12 +327,11 @@ request_model.$click.subscribe( async () => {
     .then(response => response.json())
     .then(async json => {
       console.log(json);
-      if (json.message=='Timeout reached.') {
-        console.log('An error occurred', json.message);
-        //aml_model['ready'] = false;
-        collaborative_status.$value.set('<h1>Error while retrieving model: ' + json.message + '</h1> ');
-        model_received.$value.set('<h2>Error while retrieving model: ' + json.message + '</h2>');
-      } else{
+      if (json.Error) {
+        console.log('An error occurred', json.Error);
+        collaborative_status.$value.set('<h1>Error while retrieving model: ' + json.Error + '</h1> ');
+        model_received.$value.set('<h2>Error while retrieving model: ' + json.Error + '</h2>');
+      } else {
         console.log('MODEL RECEIVED');
         save_to_file(json, "model_.json");
         aml_model['ready'] = true;
@@ -358,7 +355,7 @@ const predictButton = button('Update predictions');
 predictButton.title = 'Neural Network';
 
 predictButton.$click.subscribe(async () => {
-  if (! classifier.ready ) {
+  if (!classifier.ready) {
     throwError(new Error('No classifier has been trained'));
   }
   await batchMLP.clear();
@@ -370,10 +367,10 @@ const url_inference = "http://localhost:5000/inference";
 
 const predictButtonAML = button('Update predictions');
 predictButtonAML.title = 'Algebraic Machine Learning';
-
+const predict_status = text('Not predicted');
 const batchAML = batchPrediction('AML', store);
 const confMatAML = confusionMatrix(batchAML);
-confMatAML.title = 'Results Algebraic Machine Learning'
+confMatAML.title = 'Results Algebraic Machine Learning';
 const mockAMLModel = {
   predict : function predict(x) {
     const json_dt = {data : x};
@@ -405,15 +402,16 @@ const mockAMLModel = {
 };
 
 predictButtonAML.$click.subscribe(async () => {
-  if (! aml_model['ready']) {
+  if (!aml_model['ready']) {
     throwError(new Error('No AML model has been trained'));
-  }else {
+  } else {
 
   await batchAML.clear();
   await batchAML.predict(mockAMLModel, trainingSet);
-
+    
   console.log('Predictions done');
-  console.log(batchAML.items().service);}
+    console.log(batchAML.items().service);
+  }
 });
 
 
@@ -560,12 +558,13 @@ create_fiware.$click.subscribe( async () => {
   .then(async json => {
     console.log(json);
 
-    if (json.message=='Error') {
+    if (json.Error) {
       console.log('Fiware Node not created');
       fiware_node_status.$value.set('<h1>Fiware Node could not be created</h1> ');
     } else if (json.message=='OK') {
       console.log('CREATED');
-      fiware_node_status.$value.set('<h1>Created !</h1> '); }
+      fiware_node_status.$value.set('<h1>Created !</h1> '); 
+    }
 
   });
 });
@@ -577,7 +576,7 @@ post_data.$click.subscribe( async () => {
   {
     throwError(new Error('No data has been uploaded'));
     data_status.$value.set('<h1>Data has not been uploaded</h1> ');
-  } else if(fiware_node_status.$value.get() == '<h1>Fiware Node could not be created</h1> ') {
+  } else if (fiware_node_status.$value.get() == '<h1>Fiware Node could not be created</h1> ') {
     throwError(new Error('No Fiware Node has been created'));
   }
   else
