@@ -107,7 +107,9 @@ class CustomModelListener(ModelListener):
         print(statistics_data)
         print('\n')
         
+        global waiter_statistics
         waiter_statistics.open()
+
 
 
         return True
@@ -121,7 +123,9 @@ class CustomModelListener(ModelListener):
 
         print('\nReply received\n')
         
+        global waiter_model
         waiter_model.open()
+
 
         return True
 
@@ -335,7 +339,7 @@ def add_message(nJob, nIter, percentageData):
     
 @app.route('/inference', methods=['GET', 'POST'])
 def add_inference():
-
+    timeout=30
     global waiter_inference
     waiter_inference = BooleanWaitHandler(True, False)
 
@@ -351,8 +355,9 @@ def add_inference():
     task_id = edge_node.request_inference(inference)
 
     print(f'Request sent with task id: {task_id}. Waiting inference...')
+
     # Wait to received solution
-    reason=waiter_inference.wait(timeout=30)
+    reason=waiter_inference.wait(timeout)
     if reason==AwakeReason.timeout:
         print('Timeout reached.')
         return jsonify({'Error': 'Timeout reached.'})
@@ -380,6 +385,7 @@ def create_fiware_node():
     except Exception as e:
         print(f'There has been an error while trying to create the Fiware Node {e}')
         return jsonify({'Error': f'There has been an error while trying to create the Fiware Node {e}'})
+    
     fiware_run = threading.Thread(target=fiware_node.run)
 
     try:
@@ -387,7 +393,8 @@ def create_fiware_node():
         return jsonify({'message': 'OK'})
     except Exception as e:
         fiware_run.join()
-        return jsonify({'Error': f'There has been an error while trying to create the Fiware Node {e}'})
+        return jsonify({'Error': f'There has been an error while trying to start the Fiware Node {e}'})
+
 
 @app.route('/context_broker/data', methods=['GET', 'POST'])
 def add_data():
@@ -396,15 +403,6 @@ def add_data():
     content = request.json
 
     global fiware_node
-
-    try:
-        fiware_node.post_data(content['data'])
-    except Exception as e:
-        return jsonify({'Error': str(e)})
-
-    try:
-        fiware_node.post_data('HELLO WORLD!!!!!')
-        return jsonify({'message': 'OK'})
     
     try:
         fiware_node.post_data(content['data'],timeout)

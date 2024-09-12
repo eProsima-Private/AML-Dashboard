@@ -30,7 +30,6 @@ Create a virtual environment and install Python dependencies.
 
 * Note: pipx can also be used for users who prefer that as an alternative for managing Python packages in isolated environments.
 
-
 Install **npm** (8.5.1) and **nodejs** (v12.22.9) using the following commands:
 
 ```bash
