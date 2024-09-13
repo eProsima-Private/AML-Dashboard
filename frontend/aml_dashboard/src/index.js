@@ -558,7 +558,24 @@ post_data.$click.subscribe( async () => {
   else
   {
     data_status.$value.set(' <h1>Sending...</h1> <br> <img src="https://i.gifer.com/Cad.gif">');
-    const image_data = Array.from(image.data);
+
+    async function process_image(img) {
+      const result = {
+        x: await get_features(img),  // Extract features from the image
+        thumbnail: img,              // Store the original image
+        y: label.$value.get(),       // Get the current label value
+      };
+      return result;
+    }
+
+    // Call the function with a single image
+    const image_result = await process_image(image);
+    // Prepare the data for the AML model
+    const json_dt = {
+      width : image.width,
+      height : image.height,
+      data : calculate_time_features([image_result]).x
+    };
 
     fetch(url_context_broker + 'data', {
       method: "POST", // *GET, POST, PUT, DELETE, etc.
@@ -570,11 +587,7 @@ post_data.$click.subscribe( async () => {
       },
       redirect: "follow", // manual, *follow, error
       referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
-      body: JSON.stringify({
-        width : 6,
-        height : 6,
-        data : image_data
-      }) // body data type must match "Content-Type" header
+      body: JSON.stringify(json_dt) // body data type must match "Content-Type" header
     })
     .then(response => response.json())
     .then(async json => {

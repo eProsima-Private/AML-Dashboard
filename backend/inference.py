@@ -33,11 +33,10 @@ class CustomInferenceReplier(InferenceReplier):
             task_id,
             client_id):
 
-        # Convert the string to a list of integers
-        inference_list = [int(x) for x in inference.to_string().strip('[]').split(',')]
+        data = json.loads(inference.to_string())
 
         global aml_model_predict
-        pred = aml_model_predict(inference_list)
+        pred = aml_model_predict(data)
         inference_solution = InferenceSolutionDataType(json.dumps(pred))
 
         print(f'Data received from client: {client_id}\n'

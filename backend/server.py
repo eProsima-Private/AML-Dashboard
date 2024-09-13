@@ -314,7 +314,7 @@ def add_inference():
     global inference_data
     inference_data = None
 
-    data = json.dumps(content)
+    data = json.dumps(content['data'])
 
     inference = InferenceDataType(data)
 

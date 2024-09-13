@@ -73,9 +73,6 @@ def build_aml_model(json_info):
         input_indexes = []
         for xi in range(len(x_raw)):
             v = x_raw[xi]
-            # TODO: IndexError: list index out of range
-            # - len(json_info['edges']): 50
-            # - len(x_raw): 200704
             edges = json_info['edges'][xi]
 
             i = 0
@@ -151,7 +148,9 @@ def process_model_data(json_str, training_set_str):
             sum_misses += i_n_misses * n_times
             lst_cum.append(sum_misses)
         for i_n_misses in range(max_misses):
-            lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses)
+            # TODO: ZeroDivisionError: division by zero
+            if sum_misses != 0:
+                lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses)
         map_p_per_miss_per_class[cl] = lst_cum
 
     def aml_model_predict(x_raw):
