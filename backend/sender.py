@@ -14,7 +14,6 @@
 
 import pickle as pkl
 import signal
-import re
 import os
 
 
@@ -31,7 +30,6 @@ from utils import use_most_recent_file
 DOMAIN_ID = 166
 
 # Variable to wait to the model request
-
 waiter = BooleanWaitHandler(True, False)
 
 # Custom model replier
@@ -58,9 +56,9 @@ class CustomModelReplier(ModelReplier):
             reply = ModelReplyDataType(file_data)
             print('Publish reply\n')
             return reply
-        except FileNotFoundError:
-            print("File not found.")
-            return None
+        except Exception as e:
+            print(f'Error reading training set file: {e}')  
+            exit(1) 
 
 
 def main():

@@ -191,7 +191,7 @@ controls.title = 'Choose input values per execution';
 console.log('Controls:', controls);
 
 b_train_AML.$click.subscribe( async () => {
-  textAMLTrainStatus.$value.set(' <h1>Training...</h1> <br> <img src="https://i.gifer.com/origin/05/05bd96100762b05b616fb2a6e5c223b4_w200.gif">');
+  textAMLTrainStatus.$value.set(' <h2>Training...</h2> <br> <img src="https://i.gifer.com/origin/05/05bd96100762b05b616fb2a6e5c223b4_w200.gif">');
 
   const v = await trainingSet.find();
 
@@ -223,20 +223,17 @@ b_train_AML.$click.subscribe( async () => {
   })
   .then(response => response.json())
   .then(async json => {
-    console.log(json);
     if (json.Error) {
-      console.log('An error occurred', json.Error);
-      textAMLTrainStatus.$value.set('<h1>Error: ' + json.Error + '</h1> ');
+      console.log('An error occurred: ', json.Error);
+      throwError(new Error(json.Error));
+      textAMLTrainStatus.$value.set('<p>Not Trained</p>');
+      aml_model['ready'] = false;
 
     } else {
-      console.log('RECEIVED');
-
       save_to_file(json, "model_.json");
-
       aml_model['ready'] = true;
-
-      textAMLTrainStatus.$value.set('<h1>Finished :)</h1> ');}
-
+      textAMLTrainStatus.$value.set('<h2>Finished :)</h2> ');
+    }
   });
 });
 
@@ -263,9 +260,9 @@ collaborative_status.title = 'AML Collaborative Learning Status';
 const search_statistics = button('Search for statistics');
 search_statistics.title = 'AML Statistics Fetcher'
 
+const control_value = text('No statistics received');
 search_statistics.$click.subscribe( async () => {
-  console.log('Search statistics');
-  collaborative_status.$value.set(' <h1>Searching statistics...</h1> <br> <img src="https://i.gifer.com/Cad.gif"> ');
+  collaborative_status.$value.set(' <h2>Searching statistics...</h2> <br> <img src="https://i.gifer.com/Cad.gif"> ');
 
   fetch(url_fetcher + 'statistics', {
     method: "GET", // *GET, POST, PUT, DELETE, etc.
@@ -280,20 +277,18 @@ search_statistics.$click.subscribe( async () => {
   })
   .then(response => response.json())
   .then(async json => {
-    console.log(json);
     if (json.Error) {
-      console.log('An error occurred', json.Error);
-      collaborative_status.$value.set('<h1>Error while retrieving statistics: ' + json.Error + '</h1> ');
-      statistics_received.$value.set('No statistics received');
+      console.log('An error occurred: ', json.Error);
+      throwError(new Error(json.Error)); 
+      collaborative_status.$value.set('<p>Not received</p>');
+      control_value.$value.set(json.Error);
     } else {
       const name = json.name; // Extracting the value of 'name' field from the JSON response
-      collaborative_status.$value.set('<h1>Statistics received !</h1> ');
-      statistics_received.$value.set('<h2>Statistics received: ' + name + '</h2>');
+      collaborative_status.$value.set('<h2>Statistics received !</h2> ');
+      statistics_received.$value.set('<h3>' + name + '</h3>');
+      control_value.$value.set('Statistics received');
     }
-
-
   });
-
 });
 
 const request_model = button('Request model');
@@ -301,12 +296,12 @@ request_model.title = 'AML Model Fetcher'
 
 request_model.$click.subscribe( async () => {
 
-  if (statistics_received.$value.get() == 'No statistics received') {
+  if (control_value.$value.get() != 'Statistics received') {
     throwError(new Error('No statistics have been received'));
   } else {
 
     console.log('Request model');
-    collaborative_status.$value.set(' <h1>Requesting model...</h1> <br> <img src="https://i.gifer.com/Cad.gif">');
+    collaborative_status.$value.set(' <h2>Requesting model...</h2> <br> <img src="https://i.gifer.com/Cad.gif">');
 
     const v = await trainingSet.find();
 
@@ -326,16 +321,15 @@ request_model.$click.subscribe( async () => {
     })
     .then(response => response.json())
     .then(async json => {
-      console.log(json);
       if (json.Error) {
-        console.log('An error occurred', json.Error);
-        collaborative_status.$value.set('<h1>Error while retrieving model: ' + json.Error + '</h1> ');
-        model_received.$value.set('<h2>Error while retrieving model: ' + json.Error + '</h2>');
+        console.log('An error occurred: ', json.Error);
+        throwError(new Error(json.Error));
+        collaborative_status.$value.set('<h2>Statistics received !</h2> ');
+        aml_model['ready'] = false;
       } else {
-        console.log('MODEL RECEIVED');
         save_to_file(json, "model_.json");
         aml_model['ready'] = true;
-        collaborative_status.$value.set('<h1>Model received !</h1> ');
+        collaborative_status.$value.set('<h2>Model received !</h2> ');
         model_received.$value.set('<h2>Model received</h2>');
       }
     })
@@ -367,7 +361,6 @@ const url_inference = "http://localhost:5000/inference";
 
 const predictButtonAML = button('Update predictions');
 predictButtonAML.title = 'Algebraic Machine Learning';
-const predict_status = text('Not predicted');
 const batchAML = batchPrediction('AML', store);
 const confMatAML = confusionMatrix(batchAML);
 confMatAML.title = 'Results Algebraic Machine Learning';
@@ -389,14 +382,13 @@ const mockAMLModel = {
     })
     .then(response => response.json())
     .then(async json => {
-      console.log(json);
       if (json.Error) {
-        console.log('An error occurred', json.Error);
+        console.log('An error occurred: ', json.Error);
         throwError(new Error(json.Error));
         return json;
       } else {
-        console.log('PREDICTION RECEIVED');
-        return json;}
+        return json;
+      }
     });
   }
 };
@@ -406,10 +398,10 @@ predictButtonAML.$click.subscribe(async () => {
     throwError(new Error('No AML model has been trained'));
   } else {
 
-  await batchAML.clear();
-  await batchAML.predict(mockAMLModel, trainingSet);
-    
-  console.log('Predictions done');
+    await batchAML.clear();
+    await batchAML.predict(mockAMLModel, trainingSet);
+      
+    console.log('Predictions done');
     console.log(batchAML.items().service);
   }
 });
@@ -470,10 +462,13 @@ const predictionStreamAML = hand_window
     })
     .then(response => response.json())
     .then(async json => {
-      console.log(json);
-      console.log('INFERENCE RECEIVED');
-
-      return json;
+      if (json.Error) {
+        console.log('An error occurred: ', json.Error);
+        throwError(new Error(json.Error));
+        return json;
+      } else {
+        return json;
+        }
     });
   })
   .awaitPromises();
@@ -535,7 +530,7 @@ const url_context_broker = "http://localhost:5000/context_broker/";
 // Create the Fiware Node
 create_fiware.$click.subscribe( async () => {
 
-  fiware_node_status.$value.set(' <h1>Creating...</h1> <br> <img src="https://i.gifer.com/Cad.gif">');
+  fiware_node_status.$value.set(' <h2>Creating...</h2> <br> <img src="https://i.gifer.com/Cad.gif">');
 
   const parameters = {};
   for (let param in fiware_params.parameters) {
@@ -556,14 +551,13 @@ create_fiware.$click.subscribe( async () => {
   })
   .then(response => response.json())
   .then(async json => {
-    console.log(json);
 
     if (json.Error) {
-      console.log('Fiware Node not created');
-      fiware_node_status.$value.set('<h1>Fiware Node could not be created</h1> ');
+      console.log('Fiware Node not created: ', json.Error);
+      fiware_node_status.$value.set('<p>Not Created </p> ');
+      throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
-      console.log('CREATED');
-      fiware_node_status.$value.set('<h1>Created !</h1> '); 
+      fiware_node_status.$value.set('<h2>Created !</h2>'); 
     }
 
   });
@@ -575,13 +569,13 @@ post_data.$click.subscribe( async () => {
   if (upload_data.$images.value == undefined)
   {
     throwError(new Error('No data has been uploaded'));
-    data_status.$value.set('<h1>Data has not been uploaded</h1> ');
-  } else if (fiware_node_status.$value.get() == '<h1>Fiware Node could not be created</h1> ') {
+    data_status.$value.set('<p>Not Sended</p> ');
+  } else if (fiware_node_status.$value.get() != '<h2>Created !</h2>') {
     throwError(new Error('No Fiware Node has been created'));
   }
   else
   {
-    data_status.$value.set(' <h1>Sending...</h1> <br> <img src="https://i.gifer.com/Cad.gif">');
+    data_status.$value.set(' <h2>Sending...</h2> <br> <img src="https://i.gifer.com/Cad.gif">');
 
     async function process_image(img) {
       const result = {
@@ -617,45 +611,38 @@ post_data.$click.subscribe( async () => {
     .then(async json => {
       if (json.Error) {
         console.log('Data not sended');
-        data_status.$value.set('<h1>Data could not be sended</h1> ');
+        data_status.$value.set('<h2>Data could not be sended:</h2> ' + json.Error);
       } else if (json.message=='OK') {
-        
-          console.log('SENDED');
-          data_status.$value.set('<h1>Sended !</h1> ');
-
-          solution_status.$value.set('<h1>Waiting for solution...</h1> ');
-
-          // Get the solution from the Context Broker
-          fetch(url_context_broker + 'solution', {
-            method: "GET", // *GET, POST, PUT, DELETE, etc.
-            mode: "cors", // no-cors, *cors, same-origin
-            cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
-            credentials: "omit", // include, *same-origin, omit
-            headers: {
-              "Content-Type": "application/json",
-            },
-            redirect: "follow", // manual, *follow, error
-            referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
-          })
-          .then(response => response.json())
-          .then(async json => {
-            console.log(json);
-            if (json.Error) {
-              console.log('Solution not received');
-              solution_status.$value.set('<h1>Inference could not be done</h1> ');
-              const errorMessage = json.Error; 
-              get_solution.$value.set(`<pre>${errorMessage}</pre>`);
-            } else {
-              console.log('SOLUTION RECEIVED');
-              solution_status.$value.set('<h1>Solution received !</h1> ');
-              var solution_attr = fiware_params.parameters['Attribute Solution'].value;
-              var solution = json[solution_attr];
-              var solution_string = JSON.stringify(solution, null, 4);
-              console.log(solution_string);
-              get_solution.$value.set(`<pre>${solution_string}</pre>`);}
-            
-      });
-    }
+        data_status.$value.set('<h2>Sended !</h2> ');
+        solution_status.$value.set('<h2>Waiting for solution...</h2> ');
+        // Get the solution from the Context Broker
+        fetch(url_context_broker + 'solution', {
+          method: "GET", // *GET, POST, PUT, DELETE, etc.
+          mode: "cors", // no-cors, *cors, same-origin
+          cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+          credentials: "omit", // include, *same-origin, omit
+          headers: {
+            "Content-Type": "application/json",
+          },
+          redirect: "follow", // manual, *follow, error
+          referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+        })
+        .then(response => response.json())
+        .then(async json => {
+          if (json.Error) {
+            console.log('Solution not received');
+            solution_status.$value.set('<p>Not Received</p> ');
+            throwError(new Error(json.Error));
+          } else {
+            solution_status.$value.set('<h2>Solution received !</h2> ');
+            var solution_attr = fiware_params.parameters['Attribute Solution'].value;
+            var solution = json[solution_attr];
+            var solution_string = JSON.stringify(solution, null, 4);
+            console.log(solution_string);
+            get_solution.$value.set(`<pre>${solution_string}</pre>`);
+          }
+        });
+      }
     });
   }
 });
@@ -664,7 +651,7 @@ post_data.$click.subscribe( async () => {
 upload_data.$images.subscribe( async (img) => {
 
   image = img;
-  data_status.$value.set(' <h1>Image uploaded</h1> ');
+  data_status.$value.set(' <h2>Image uploaded</h2> ');
 });
 
 
@@ -705,61 +692,63 @@ function fetchStatus() {
   })
   .then(response => response.json())
   .then(async json => {
+    if (Object.keys(json).length != 0) {
 
-  // Update instances in the dataset
-  async function updateInstances(ts) {
-    var instances = await ts
-      .items() // get iterable
-      .select(['_id', 'ID']) // select the fields toy return
-      .toArray(); // convert to array
-    return instances;
-  }
-
-  // Check if ID is in instances
-  function isRepeated(instances, ID) {
-    for (var i in instances) {
-      if (ID == instances[i].ID) {
-        return true;
+      // Update instances in the dataset
+      async function updateInstances(ts) {
+        var instances = await ts
+          .items() // get iterable
+          .select(['_id', 'ID']) // select the fields toy return
+          .toArray(); // convert to array
+        return instances;
       }
-    }
-    return false;
-  }
 
-  // Function to get the id in the dataset based on ID
-  function getId(instances, ID) {
-    for (var i in instances) {
-      if (ID == instances[i].ID) {
-        return instances[i].id;
+      // Check if ID is in instances
+      function isRepeated(instances, ID) {
+        for (var i in instances) {
+          if (ID == instances[i].ID) {
+            return true;
+          }
+        }
+        return false;
       }
-    }
-  }
 
-  // Function to remove status from dataset
-  function removeStatus(dataset, instances, ID) {
-    var local_id = getId(instances, ID);
-    dataset.remove(local_id);
-  }
+      // Function to get the id in the dataset based on ID
+      function getId(instances, ID) {
+        for (var i in instances) {
+          if (ID == instances[i].ID) {
+            return instances[i].id;
+          }
+        }
+      }
 
-  var instances = await updateInstances(ts)
+      // Function to remove status from dataset
+      function removeStatus(dataset, instances, ID) {
+        var local_id = getId(instances, ID);
+        dataset.remove(local_id);
+      }
 
-  const nodes = json['nodes'];
+      var instances = await updateInstances(ts)
 
-  for (var node in nodes) {
+      const nodes = json['nodes'];
 
-    instances = await updateInstances(ts)
-    // Get ID of the current node
-    const id = json['nodes'][node].ID;
+      for (var node in nodes) {
 
-    // Check if ID is repeated, if so remove status
-    if (isRepeated(instances, id)) {
-      // Remove the status of the nodes that are not in the dataset
-      removeStatus(ts, instances, id);
-    }
-    // Create node in the dataset
-    ts.create(nodes[node]);
+        instances = await updateInstances(ts)
+        // Get ID of the current node
+        const id = json['nodes'][node].ID;
 
-    instances = await updateInstances(ts)
-  }
+        // Check if ID is repeated, if so remove status
+        if (isRepeated(instances, id)) {
+          // Remove the status of the nodes that are not in the dataset
+          removeStatus(ts, instances, id);
+        }
+        // Create node in the dataset
+        ts.create(nodes[node]);
+
+        instances = await updateInstances(ts)
+      }
+    } 
   });
 }
 // Fetch the status every 1 seconds

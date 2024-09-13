@@ -14,7 +14,6 @@
 
 import json
 import os
-import re
 import signal
 
 from amlip_py.node.AsyncInferenceNode import AsyncInferenceNode, InferenceReplier
