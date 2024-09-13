@@ -314,7 +314,7 @@ def add_inference():
     global inference_data
     inference_data = None
 
-    data = json.dumps(content)
+    data = json.dumps(content['data'])
 
     inference = InferenceDataType(data)
 
@@ -363,11 +363,11 @@ def add_data():
     content = request.json
 
     global fiware_node
-    # TODO change when :
-    #   Failed to post data: 413 Client Error: Content Too Large for url: http://localhost:1026/v2/entities
-    # is solved
-    #  fiware_node.post_data(content['data'])
-    fiware_node.post_data('HELLO WORLD!!!!!')
+
+    try:
+        fiware_node.post_data(content['data'])
+    except Exception as e:
+        return jsonify({'Error': str(e)})
 
     return jsonify({'message': 'OK'})
 

@@ -33,10 +33,8 @@ class CustomInferenceReplier(InferenceReplier):
             task_id,
             client_id):
 
-        # Parse the JSON string
         data = json.loads(inference.to_string())
 
-        data = data["data"]
         global aml_model_predict
         pred = aml_model_predict(data)
         inference_solution = InferenceSolutionDataType(json.dumps(pred))
