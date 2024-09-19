@@ -24,12 +24,13 @@ from amlip_py.types.AmlipIdDataType import AmlipIdDataType
 from amlip_py.types.ModelReplyDataType import ModelReplyDataType
 from amlip_py.types.ModelRequestDataType import ModelRequestDataType
 
+from utils import use_most_recent_file
+
 # Domain ID
 DOMAIN_ID = 166
 
 # Variable to wait to the model request
 waiter = BooleanWaitHandler(True, False)
-
 
 # Custom model replier
 class CustomModelReplier(ModelReplier):
@@ -41,12 +42,13 @@ class CustomModelReplier(ModelReplier):
         print('Request received:\n')
         print(request.to_string())
         print('\n')
+        
 
         # Get the path to the Downloads directory
         downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
-
-        # Create the full path to the file
-        model_path = os.path.join(downloads_path, "model_.json")
+        
+        # Determine the path to the most recent model file
+        model_path=use_most_recent_file(downloads_path, "model_")
 
         try:
             with open(model_path, 'r') as file:
@@ -54,9 +56,9 @@ class CustomModelReplier(ModelReplier):
             reply = ModelReplyDataType(file_data)
             print('Publish reply\n')
             return reply
-        except FileNotFoundError:
-            print("File not found.")
-            return None
+        except Exception as e:
+            print(f'Error reading training set file: {e}')  
+            exit(1) 
 
 
 def main():

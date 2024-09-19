@@ -20,6 +20,7 @@ from amlip_py.node.AsyncInferenceNode import AsyncInferenceNode, InferenceReplie
 from amlip_py.types.InferenceSolutionDataType import InferenceSolutionDataType
 
 from aml_model_processing import process_model_data
+from utils import use_most_recent_file
 
 # Domain ID
 DOMAIN_ID = 166
@@ -48,25 +49,27 @@ class CustomInferenceReplier(InferenceReplier):
 def main():
     """Execute main routine."""
 
-    ## Prepare model
     # Get the path to the Downloads directory
     downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
 
-    # Create the full path to the file
-    model_path = os.path.join(downloads_path, "model_.json")
-    training_path = os.path.join(downloads_path, "training_set_.json")
+    # Create the full path to the most recent file
+    training_path=use_most_recent_file(downloads_path, "training_set_")
+    model_path=use_most_recent_file(downloads_path, "model_")
 
     try:
         with open(model_path, 'r') as file:
             json = file.read()
-    except FileNotFoundError:
-        print("Model file not found.")
+    except Exception as e:
+        print(f'Error reading model file: {e}')
+        exit(1)
 
     try:
         with open(training_path, 'r') as file:
             training_set = file.read()
-    except FileNotFoundError:
-        print("Training set file not found.")
+    except Exception as e:
+        print(f'Error reading training set file: {e}')
+        exit(1)
+
 
     global aml_model_predict
     aml_model_predict = process_model_data(json, training_set)

@@ -147,10 +147,9 @@ def process_model_data(json_str, training_set_str):
             n_times = map_neg_misses_per_class[cl].get(i_n_misses, 0)
             sum_misses += i_n_misses * n_times
             lst_cum.append(sum_misses)
-        for i_n_misses in range(max_misses):
-            # TODO: ZeroDivisionError: division by zero
-            if sum_misses != 0:
-                lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses)
+        for i_n_misses in range(max_misses): 
+            #TODO: Take into account that division by zero is possible. Check if this is correct.
+            lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses)
         map_p_per_miss_per_class[cl] = lst_cum
 
     def aml_model_predict(x_raw):
