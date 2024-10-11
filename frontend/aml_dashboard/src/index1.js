@@ -2,33 +2,48 @@ import '@marcellejs/core/dist/marcelle.css';
 import {
   button,
   modelParameters,
-  number,
   Stream,
   text,
   throwError
 } from '@marcellejs/core';
 
 import  { dashboard } from './components';
+
 // -----------------------------------------------------------
-// CREATE COMPUTING NODE 
+// COMPUTING NODE
 // -----------------------------------------------------------
 
 const create_computing = button('Create');
 create_computing.title = 'Computing Node';
+
+const stop_computing = button('Stop');
+stop_computing.title = 'Stop Computing Node';
+
+const run_computing = button('Run');
+run_computing.title = 'Run Computing Node';
+
+const stop_delete_computing = button('Stop and Delete');
+stop_delete_computing.title = 'Stop and Delete Computing Node';
+
+const comp_stop_params = {
+  parameters: {
+    'Node ID': new Stream('AsyncComputingNode.95.1d.0d.e6', true),
+  },
+};
 
 const computing_node_status = text('Not Created');
 computing_node_status.title = 'Computing Node Status';
 
 const url_create_computing = "http://localhost:5000/computing/";
 
-const n_jobs = number(1);
-n_jobs.title = 'Parallel Training (executions)';
+// -----------------------------------------------------------
+// CREATE COMPUTING NODE 
+// -----------------------------------------------------------
 
 // Create the Computing Node
 create_computing.$click.subscribe( async () => {
 
   computing_node_status.$value.set(' <h2>Creating...</h2> <br> <img src="https://i.gifer.com/Cad.gif">');
-  const n_job = n_jobs.$value.get();
   fetch(url_create_computing + 'start',  {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
     mode: "cors", // no-cors, *cors, same-origin
@@ -39,7 +54,6 @@ create_computing.$click.subscribe( async () => {
     },
     redirect: "follow", // manual, *follow, error
     referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
-    body: JSON.stringify({threads : n_job}), // body data type must match "Content-Type" header
   })
   .then(response => response.json())
   .then(async json => {
@@ -49,22 +63,12 @@ create_computing.$click.subscribe( async () => {
       computing_node_status.$value.set('<p>Not Created </p> ');
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
-      computing_node_status.$value.set('<h2>Created and running !</h2>'); 
+      computing_node_status.$value.set('<h2>Created and running !</h2>');
     }
-
   });
 });
 
 // -------------------Stop Computing Node--------------------
-
-const stop_computing = button('Stop');
-stop_computing.title = 'Stop Computing Node';
-
-const comp_stop_params = {
-  parameters: {
-    'Node ID': new Stream('AsyncComputingNode.95.1d.0d.e6', true),
-  },
-};
 
 const comp_stop_node = modelParameters(comp_stop_params);
 comp_stop_node.title = 'Indicate the ID of Computing Node to manage:';
@@ -100,14 +104,10 @@ stop_computing.$click.subscribe( async () => {
     } else if (json.message=='OK') {
       computing_node_status.$value.set('<h2>Stopped !</h2>');
     }
-
   });
 });
 
 // ------------------------- Run Computing Node--------------------------
-
-const run_computing = button('Run');
-run_computing.title = 'Run Computing Node';
 
 run_computing.$click.subscribe( async () => {
 
@@ -139,13 +139,10 @@ run_computing.$click.subscribe( async () => {
       } else if (json.message=='OK') {
         computing_node_status.$value.set('<h2>Running !</h2>');
       }
-  
     });
 });
 
 // --------------------Stop and Delete Computing Node--------------------
-const stop_delete_computing = button('Stop and Delete');
-stop_delete_computing.title = 'Stop and Delete Computing Node';
 
 stop_delete_computing.$click.subscribe( async () => {
 
@@ -177,7 +174,6 @@ stop_delete_computing.$click.subscribe( async () => {
     } else if (json.message=='OK') {
       computing_node_status.$value.set('<h2>Deleted !</h2>');
     }
-
   });
 });
 
@@ -202,18 +198,6 @@ stop_delete_sender.title = 'Delete Sender Node';
 
 const sender_node_status = text('Not Created');
 sender_node_status.title = 'Computing Node Status';
-
-const statistics_received = text('No statistics received');
-statistics_received.title = 'AML Statistics';
-
-const model_received = text('No model received');
-model_received.title = 'AML Model';
-
-const collaborative_status = text('Not received');
-collaborative_status.title = 'AML Collaborative Learning Status';
-
-const search_statistics = button('Search for statistics');
-search_statistics.title = 'AML Statistics Fetcher'
 
 
 // Create the Sender Node
@@ -242,8 +226,8 @@ create_sender.$click.subscribe( async () => {
       throwError(new Error(json.Error));
     } else if (json.message=='OK') {
       sender_node_status.$value.set('<h2>Created !</h2>');
+      create_sender.$disabled.set(true);
     }
-
   });
 });
 
@@ -273,22 +257,40 @@ stop_delete_sender.$click.subscribe( async () => {
       throwError(new Error(json.Error));
     } else if (json.message=='OK') {
       sender_node_status.$value.set('<h2>Deleted !</h2>');
+      create_sender.$disabled.set(false);
     }
-
   });
 });
 
 // -----------------------------------------------------------
-// CREATE INFERENCE NODE
+// INFERENCE NODE
 // -----------------------------------------------------------
-
 const create_inference = button('Create');
-create_inference.title = 'Inference Node';;
+create_inference.title = 'Inference Node';
+
+const stop_inference = button('Stop');
+stop_inference.title = 'Stop Inference Node';
+
+const run_inference = button('Run');
+run_inference.title = 'Run Inference Node';
+
+const stop_delete_inference = button('Stop and Delete');
+stop_delete_inference.title = 'Stop and Delete Inference Node';
 
 const inference_node_status = text('Not Created');
 inference_node_status.title = 'Inference Node Status';
 
 const url_create_inference = "http://localhost:5000/inference_node/";
+
+const inference_stop_params = {
+  parameters: {
+    'Node ID': new Stream('AsyncInferenceNode.95.1d.0d.e6', true),
+  },
+};
+
+// -----------------------------------------------------------
+// CREATE INFERENCE NODE
+// -----------------------------------------------------------
 
 // Create the Inference Node
 create_inference.$click.subscribe( async () => {
@@ -321,15 +323,6 @@ create_inference.$click.subscribe( async () => {
 });
 
 // ---------------------Stop Inference Node--------------------
-
-const stop_inference = button('Stop');
-stop_inference.title = 'Stop Inference Node';
-
-const inference_stop_params = {
-  parameters: {
-    'Node ID': new Stream('AsyncInferenceNode.95.1d.0d.e6', true),
-  },
-};
 
 const inference_stop_node = modelParameters(inference_stop_params);
 inference_stop_node.title = 'Indicate the ID of Inference Node to stop:';
@@ -364,14 +357,10 @@ stop_inference.$click.subscribe( async () => {
     } else if (json.message=='OK') {
       inference_node_status.$value.set('<h2>Stopped !</h2>');
     }
-
   });
 });
 
 // ------------------------ Run Inference Node -------------------------
-
-const run_inference = button('Run');
-run_inference.title = 'Run Inference Node';
 
 run_inference.$click.subscribe( async () => {
 
@@ -403,14 +392,10 @@ run_inference.$click.subscribe( async () => {
     } else if (json.message=='OK') {
       inference_node_status.$value.set('<h2>Running !</h2>');
     }
-
   });
 });
 
 // ----------------- Stop and Delete Inference Node --------------------
-
-const stop_delete_inference = button('Stop and Delete');
-stop_delete_inference.title = 'Stop and Delete Inference Node';
 
 stop_delete_inference.$click.subscribe( async () => {
 
@@ -441,7 +426,6 @@ stop_delete_inference.$click.subscribe( async () => {
     } else if (json.message=='OK') {
       inference_node_status.$value.set('<h2>Deleted !</h2>');
     }
-
   });
 });
 
@@ -470,6 +454,9 @@ client_node.title = 'Choose parameters for the Client Node creation:';
 
 const create_client_node = button('Create');
 create_client_node.title = 'Create Agent Client Node';;
+
+const delete_client_node = button('Delete');
+delete_client_node.title = 'Delete Agent Client Node';
 
 const client_node_status = text('Not Created');
 client_node_status.title = 'Client Node Status';
@@ -508,15 +495,14 @@ create_client_node.$click.subscribe( async () => {
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
       client_node_status.$value.set('<h2>Created !</h2>'); 
+      create_client_node.$disabled.set(true);
+      delete_client_node.$disabled.set(false);
     }
 
   });
 });
 
 // Delete the Agent Client Node
-
-const delete_client_node = button('Delete');
-delete_client_node.title = 'Delete Agent Client Node';
 
 const url_delete_client_node = "http://localhost:5000/client_node/stop";
 
@@ -544,8 +530,9 @@ delete_client_node.$click.subscribe( async () => {
       throwError(new Error(json.Error));
     } else if (json.message=='OK') {
       client_node_status.$value.set('<h2>Deleted !</h2>');
+      create_client_node.$disabled.set(false);
+      delete_client_node.$disabled.set(true);
     }
-
   });
 });
 
@@ -568,13 +555,15 @@ const server_node = modelParameters(server_node_params);
 server_node.title = 'Choose parameters for the Server Node creation:';
 
 const create_server_node = button('Create');
-create_server_node.title = 'Create Agent Server Node';;
+create_server_node.title = 'Create Agent Server Node';
+
+const delete_server_node = button('Delete');
+delete_server_node.title = 'Delete Agent Server Node';
 
 const server_node_status = text('Not Created');
 server_node_status.title = 'Server Node Status';
 
 const url_create_server_node = "http://localhost:5000/server_node";
-
 
 // Create the Agent server Node
 create_server_node.$click.subscribe( async () => {
@@ -607,15 +596,13 @@ create_server_node.$click.subscribe( async () => {
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
       server_node_status.$value.set('<h2>Created !</h2>');
+      create_server_node.$disabled.set(true);
+      delete_server_node.$disabled.set(false);
     }
-
   });
 });
 
 // Delete the Agent Server Node+
-
-const delete_server_node = button('Delete');
-delete_server_node.title = 'Delete Agent Server Node';
 
 const url_delete_server_node = "http://localhost:5000/server_node/stop";
 
@@ -643,8 +630,9 @@ delete_server_node.$click.subscribe( async () => {
       throwError(new Error(json.Error));
     } else if (json.message=='OK') {
       server_node_status.$value.set('<h2>Deleted !</h2>');
+      create_server_node.$disabled.set(false);
+      delete_server_node.$disabled.set(true);
     }
-
   });
 });
 
@@ -665,8 +653,12 @@ const repeater_node_params = {
 
 const repeater_node = modelParameters(repeater_node_params);
 repeater_node.title = 'Choose parameters for the Repeater Node creation:';
+
 const create_repeater_node = button('Create');
-create_repeater_node.title = 'Create Agent Repeater Node';;
+create_repeater_node.title = 'Create Agent Repeater Node';
+
+const delete_repeater_node = button('Delete');
+delete_repeater_node.title = 'Delete Agent Repeater Node';
 
 const repeater_node_status = text('Not Created');
 repeater_node_status.title = 'Repeater Node Status';
@@ -705,15 +697,13 @@ create_repeater_node.$click.subscribe( async () => {
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
       repeater_node_status.$value.set('<h2>Created !</h2>');
+      create_repeater_node.$disabled.set(true);
+      delete_repeater_node.$disabled.set(false);
     }
-
   });
 });
 
 // Delete the Agent Repeater Node
-
-const delete_repeater_node = button('Delete');
-delete_repeater_node.title = 'Delete Agent Repeater Node';
 
 const url_delete_repeater_node = "http://localhost:5000/repeater_node/stop";
 
@@ -742,8 +732,9 @@ delete_repeater_node.$click.subscribe( async () => {
       throwError(new Error(json.Error));
     } else if (json.message=='OK') {
       repeater_node_status.$value.set('<h2>Deleted !</h2>');
+      create_repeater_node.$disabled.set(false);
+      delete_repeater_node.$disabled.set(true);
     }
-
   });
 });
 

@@ -12,10 +12,8 @@ export class Widget extends Component {
 
 	destroy() {
 		const a = document.querySelector("div[class='card-container svelte-jdleo9']");
-		if (a !== null){
 		a.style.display = 'none';
 		console.log('destroying widget');
-	    }
 	}
 
 	mount(target) {
@@ -33,19 +31,8 @@ export class Widget extends Component {
 				}
 			});
 		} else {
-			const b=document.querySelector("div[class='card-container svelte-jdleo9']");
-			if (b !== null){
-				document.querySelector("div[class='card-container svelte-jdleo9']").style.display = 'flex';
-				console.log('showing widget');
-			}else {
-				this.view = new View({
-					target: t,
-					props: {
-						title: this.title,
-						url: 'index1.html'  // Pass URL to the view
-					}
-				});
+			document.querySelector("div[class='card-container svelte-jdleo9']").style.display = 'flex';
+			console.log('showing widget');
 			}
 		}
 	}
-}

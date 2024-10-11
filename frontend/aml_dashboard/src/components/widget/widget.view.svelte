@@ -6,6 +6,6 @@
 
 <ViewContainer {title}>
 
-  <iframe title="" src={url}  width="(parseInt(window.innerWidth) * 0.9)" height="750px" style="border: none;"></iframe>
+  <iframe title="" src={url}  width="(parseInt(window.innerWidth) * 0.9)" height="100%" style="border:20px solid white; border-radius: 20px" ></iframe>
   
 </ViewContainer>
