@@ -769,9 +769,9 @@ def create_client_node():
     client_node_content = request.json # we need to get the name, commection adress and domain from the aml dashboard user
     global client_node
 
-    if client_node_content['Transport Protocol'] == 'UDP':
+    if client_node_content['Transport Protocol'] == 'UDP' or client_node_content['Transport Protocol'] == 'udp':
         transport_protocol = TransportProtocol_udp
-    elif client_node_content['Transport Protocol'] == 'TCP':
+    elif client_node_content['Transport Protocol'] == 'TCP' or client_node_content['Transport Protocol'] == 'tcp':
         transport_protocol = TransportProtocol_tcp
     else:
         return jsonify({'Error': 'Transport Protocol not supported'})
@@ -814,9 +814,9 @@ def create_server_node():
     server_node_content = request.json # we need to get the name, commection adress and domain from the aml dashboard user
     global server_node
 
-    if server_node_content['Transport Protocol'] == 'UDP':
+    if server_node_content['Transport Protocol'] == 'UDP' or server_node_content['Transport Protocol'] == 'udp':
         transport_protocol = TransportProtocol_udp
-    elif server_node_content['Transport Protocol'] == 'TCP':
+    elif server_node_content['Transport Protocol'] == 'TCP' or server_node_content['Transport Protocol'] == 'tcp':
         transport_protocol = TransportProtocol_tcp
     else:
         return jsonify({'Error': 'Transport Protocol not supported'})
@@ -859,9 +859,9 @@ def stop_server_node():
 def create_repeater_node():
     repeater_node_content = request.json
     global repeater_node
-    if repeater_node_content['Transport Protocol'] == 'UDP':
+    if repeater_node_content['Transport Protocol'] == 'UDP' or repeater_node_content['Transport Protocol'] == 'udp':
         transport_protocol = TransportProtocol_udp
-    elif repeater_node_content['Transport Protocol'] == 'TCP': 
+    elif repeater_node_content['Transport Protocol'] == 'TCP' or repeater_node_content['Transport Protocol'] == 'tcp': 
         transport_protocol = TransportProtocol_tcp
     else:
         return jsonify({'Error': 'Transport Protocol not supported'})
