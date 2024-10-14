@@ -1,7 +1,6 @@
 import json
 import random
 import pickle as pkl
-import time
 import threading
 import default_values
 
@@ -9,16 +8,23 @@ from flask import Flask, request, jsonify
 
 from flask_cors import CORS
 
+from amlip_swig import TransportProtocol_udp, TransportProtocol_tcp
+
 from py_utils.wait.BooleanWaitHandler import BooleanWaitHandler
 from py_utils.wait.IntWaitHandler import IntWaitHandler
 from py_utils.wait.WaitHandler import AwakeReason
 
 from amlip_py.node.AsyncEdgeNode import AsyncEdgeNode, InferenceSolutionListener
 from amlip_py.node.AsyncMainNode import AsyncMainNode, SolutionListener
+from amlip_py.node.ClientNode import ClientNode
 from amlip_py.node.FiwareNode import FiwareNode
 from amlip_py.node.ModelManagerReceiverNode import ModelManagerReceiverNode, ModelListener
+from amlip_py.node.RepeaterNode import RepeaterNode
+from amlip_py.node.ServerNode import ServerNode
 from amlip_py.node.StatusNode import StatusListener, StatusNode
 
+
+from amlip_py.types.Address import Address
 from amlip_py.types.AmlipIdDataType import AmlipIdDataType
 from amlip_py.types.InferenceDataType import InferenceDataType
 from amlip_py.types.InferenceSolutionDataType import InferenceSolutionDataType
@@ -38,6 +44,14 @@ statistics_data = None
 model_data = None
 # Holds the solution data from the model training
 solution_data = None
+# Holds the information of the created computing nodes
+computing_nodes = {}
+# Holds the information of the created inference nodes
+inference_nodes = {}
+# Holds the information of the stopped computing nodes
+stopped_computing_nodes = {}
+# Holds the information of the stopped inference nodes
+stopped_inference_nodes = {}
 # BooleanWaitHandler object to manage waiting for statistics data
 waiter_statistics=BooleanWaitHandler(True, False)
 # BooleanWaitHandler object to manage waiting for model data
@@ -46,6 +60,7 @@ waiter_model=BooleanWaitHandler(True, False)
 waiter_job=IntWaitHandler(True)
 # BooleanWaitHandler object to manage waiting for inference solution
 waiter_inference = BooleanWaitHandler(True, False)
+
 
 
 app = Flask(__name__)
@@ -176,7 +191,6 @@ class CustomInferenceListener(InferenceSolutionListener):
         global waiter_inference
         waiter_inference.open()
 
-
 ############################################################
 ########################### AML IP NODES ###################
 ############################################################
@@ -246,6 +260,34 @@ def add_status():
 
     return jsonify(return_data)
 
+# ------------------- Create sender node -------------------
+
+@app.route('/fetcher/sender', methods=['GET', 'POST'])
+def create_sender_node():
+    from sender import SenderNode
+    global model_sender_node
+    model_sender_node = SenderNode()
+    try:
+        model_sender_node.run()
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        print(f'There has been an error while trying to start the Model Sender Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to start the Model Sender Node {e}'})
+
+# -------------------- Delete sender node --------------------
+
+@app.route('/fetcher/sender/drop', methods=['GET', 'POST'])
+def drop_sender_node():
+    global model_sender_node
+    try:
+        model_sender_node.delete()
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        print(f'There has been an error while trying to delete the Model Sender Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to delete the Model Sender Node {e}'})
+    
+# -----------------------------------------------------------
+
 @app.route('/fetcher/statistics', methods=['GET', 'POST'])
 def add_statistics():
     global statistics_data
@@ -276,6 +318,164 @@ def add_model():
     model = model_data
     model_data = None
     return jsonify(model)
+
+# ------------------ Create computing node ------------------
+
+@app.route('/computing/start', methods=['GET', 'POST'])
+def create_computing_node():
+    # Create node
+    from computing import ComputingNode
+    global computing_node
+    global computing_nodes
+    computing_node = ComputingNode()
+    computing_run= threading.Thread(target=computing_node.run)
+    node_id=str(computing_node.get_id())
+    try:
+        computing_run.start()
+        computing_nodes[node_id] = {
+            'node': computing_node,
+            'thread': computing_run
+        }
+        print(computing_nodes)
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        computing_run.join()
+        print(f'There has been an error while trying to start the Computing Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to start the Computing Node {e}'})
+
+# ------------------- Stop computing node -------------------
+
+@app.route('/computing/stop', methods=['GET', 'POST'])
+def stop_computing_node():
+    global computing_nodes
+    global stopped_computing_nodes
+    global computing_node_object
+    node_id = request.json['Node ID']
+    
+    try:
+        if node_id in computing_nodes:
+            node_data = computing_nodes[node_id]
+            computing_node_object = node_data['node']
+            thread = node_data['thread']
+
+            computing_node_object.stop()
+            thread.join()
+            stopped_computing_nodes[node_id] = {
+                'node': node_data['node'],
+                'thread': thread
+            }
+            del computing_nodes[node_id]
+            return jsonify({'message': 'OK'})
+
+        elif node_id == 'all' or node_id=='All':
+            for id in computing_nodes:
+                node_data = computing_nodes[id]
+                computing_node_object = node_data['node']
+                thread = node_data['thread']
+
+                computing_node_object.stop()
+                thread.join()
+                stopped_computing_nodes[id] = {
+                    'node': node_data['node'],
+                    'thread': thread
+                }
+
+            computing_nodes.clear()
+            return jsonify({'message': 'OK'})
+        else:
+            return jsonify({'Error': 'Node ID not found'})
+        
+    except Exception as e:
+        print(f'There has been an error while trying to stop the Computing Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to stop the Computing Node {e}'})  
+
+# ------------------- Run computing node --------------------
+
+@app.route('/computing/run', methods=['GET', 'POST'])
+def run_computing_node():
+    global stopped_computing_nodes
+    global computing_node_object
+    node_id = request.json['Node ID']
+    try:
+        if node_id in stopped_computing_nodes:
+            node_data = stopped_computing_nodes[node_id]
+            computing_node_object = node_data['node']
+            computing_run = threading.Thread(target=computing_node_object.run)  
+            computing_run.start()
+            computing_nodes[node_id] = {
+                'node': node_data['node'],
+                'thread': computing_run
+            }
+            del stopped_computing_nodes[node_id]
+            return jsonify({'message': 'OK'})
+        
+        elif node_id == 'all' or node_id=='All':
+            for id in stopped_computing_nodes:
+                node_data = stopped_computing_nodes[id]
+                computing_node_object = node_data['node']
+                computing_run = threading.Thread(target=computing_node_object.run)
+                computing_run.start()
+                computing_nodes[id] = {
+                    'node': node_data['node'],
+                    'thread': computing_run
+                }
+
+            stopped_computing_nodes.clear()
+            return jsonify({'message': 'OK'})
+        
+        else: 
+            return jsonify({'Error': 'Node ID not found'})
+
+    except Exception as e:
+        print(f'There has been an error while trying to run the Computing Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to run the Computing Node {e}'})
+
+# ------------------- Drop computing node -------------------
+
+@app.route('/computing/drop', methods=['GET', 'POST'])
+def drop_computing_node():
+    global computing_nodes
+    global stopped_computing_nodes
+    global computing_node_object
+    available_nodes = computing_nodes | stopped_computing_nodes
+    node_id = request.json['Node ID']
+
+    try:
+        if node_id in available_nodes:
+            node_data = available_nodes[node_id]
+            computing_node_object = node_data['node']
+            thread = node_data['thread']
+
+            computing_node_object.delete()
+            thread.join()
+            if node_id in computing_nodes:
+                del computing_nodes[node_id]
+            else:
+                del stopped_computing_nodes[node_id]
+            return jsonify({'message': 'OK'})
+        
+        elif node_id == 'all' or node_id=='All':
+            for id in available_nodes:
+                node_data = available_nodes[id]
+                computing_node_object = node_data['node']
+                thread = node_data['thread']
+                computing_node_object.delete()
+                thread.join()
+
+            available_nodes.clear()
+            stopped_computing_nodes.clear()
+            computing_nodes.clear()
+            return jsonify({'message': 'OK'})
+        
+        else:
+            return jsonify({'Error': 'Node ID not found'})
+        
+
+    except Exception as e:
+        print(f'There has been an error while trying to delete the Computing Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to delete the Computing Node {e}'})
+
+# -----------------------------------------------------------
 
 @app.route('/train/<nJob>/<nIter>/<percentageData>', methods=['GET', 'POST'])
 def add_message(nJob, nIter, percentageData):
@@ -320,10 +520,169 @@ def add_message(nJob, nIter, percentageData):
     if reason==AwakeReason.timeout:
         print('Timeout reached.')
         return jsonify({'Error': 'Timeout reached.'})
+
     else:
         print('All solutions received.')
         return jsonify(solution_data)
+
+# ------------------ Create inference node ------------------
+
+@app.route('/inference_node/create', methods=['GET', 'POST'])
+def create_inference_node():
+    # Create node
+    from inference import InferenceNode
+    global inference_node
+
+    inference_node = InferenceNode()
+    inference_run = threading.Thread(target=inference_node.run)
+    node_id=str(inference_node.get_id())
+ 
+    try:
+        inference_run.start()
+        inference_nodes[node_id] = {
+            'node': inference_node,
+            'thread': inference_run
+        }
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        inference_run.join()
+        print(f'There has been an error while trying to start the Inference Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to start the Inference Node {e}'})
+
+# ------------------- Stop inference node -------------------
+
+@app.route('/inference_node/stop', methods=['GET', 'POST'])
+def stop_inference_node():
+    global inference_nodes
+    global inference_node_object
+    global stopped_inference_nodes
+    node_id = request.json['Node ID']
+    try:
+        if node_id in inference_nodes:
+            node_data = inference_nodes[node_id]
+            inference_node_object = node_data['node']
+            thread = node_data['thread']
+
+            inference_node_object.stop()
+            thread.join()
+            stopped_inference_nodes[node_id] = {
+                'node': node_data['node'],
+                'thread': thread
+            }
+            del inference_nodes[node_id]
+            return jsonify({'message': 'OK'})
+
+        elif node_id == 'all' or node_id=='All':
+            for id in inference_nodes:
+                node_data = inference_nodes[id]
+                inference_node_object = node_data['node']
+                thread = node_data['thread']
+
+                inference_node_object.stop()
+                thread.join()
+                stopped_inference_nodes[id] = {
+                    'node': node_data['node'],
+                    'thread': thread
+                }
+            inference_nodes.clear()
+
+            return jsonify({'message': 'OK'})
+
+        else:
+            return jsonify({'Error': 'Node ID not found'})
+
+    except Exception as e:
+        print(f'There has been an error while trying to stop the Inference Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to stop the Inference Node {e}'})
     
+# ------------------- Run inference node --------------------
+
+@app.route('/inference_node/run', methods=['GET', 'POST'])
+def run_inference_node():
+    global stopped_inference_nodes
+    global inference_node_object
+    node_id = request.json['Node ID']
+
+    try:
+        if node_id in stopped_inference_nodes:
+            node_data = stopped_inference_nodes[node_id]
+            inference_node_object = node_data['node']
+            inference_run = threading.Thread(target=inference_node_object.run)
+            inference_run.start()
+            inference_nodes[node_id] = {
+                'node': node_data['node'],
+                'thread': inference_run
+            }
+            del stopped_inference_nodes[node_id]
+            return jsonify({'message': 'OK'})
+        
+        elif node_id == 'all' or node_id=='All':
+            for id in stopped_inference_nodes:
+                node_data = stopped_inference_nodes[id]
+                inference_node_object = node_data['node']
+                inference_run = threading.Thread(target=inference_node_object.run)
+                inference_run.start()
+                inference_nodes[id] = {
+                    'node': node_data['node'],
+                    'thread': inference_run
+                }
+            stopped_inference_nodes.clear()
+
+            return jsonify({'message': 'OK'})
+
+        else:
+            return jsonify({'Error': 'Node ID not found'})
+        
+    except Exception as e:
+        print(f'There has been an error while trying to run the Inference Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to run the Inference Node {e}'})
+
+# ------------------- Drop inference node -------------------
+
+@app.route('/inference_node/drop', methods=['GET', 'POST'])
+def drop_inference_node():
+    global inference_nodes
+    global inference_node_object
+    global stopped_inference_nodes
+    available_nodes = inference_nodes | stopped_inference_nodes
+    node_id = request.json['Node ID']
+
+    try:
+        if node_id in available_nodes:
+            node_data = available_nodes[node_id]
+            inference_node_object = node_data['node']
+            thread = node_data['thread']
+
+            inference_node_object.delete()
+            thread.join()
+            if node_id in inference_nodes:
+                del inference_nodes[node_id]
+            else:
+                del stopped_inference_nodes[node_id]
+            return jsonify({'message': 'OK'})
+
+        elif node_id == 'all' or node_id=='All':
+            for id in available_nodes:
+                node_data = available_nodes[id]
+                inference_node_object = node_data['node']
+                thread = node_data['thread']
+                inference_node_object.delete()
+                thread.join()
+
+            available_nodes.clear()
+            inference_nodes.clear()
+            stopped_inference_nodes.clear()
+            return jsonify({'message': 'OK'})
+
+        else:
+            return jsonify({'Error': 'Node ID not found'})
+        
+    except Exception as e:
+        print(f'There has been an error while trying to delete the Inference Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to delete the Inference Node {e}'})
+    
+# -----------------------------------------------------------
+
 @app.route('/inference', methods=['GET', 'POST'])
 def add_inference():
     waiter_inference.close()
@@ -353,7 +712,7 @@ def add_inference():
 @app.route('/context_broker/fiware', methods=['GET', 'POST'])
 def create_fiware_node():
     fiware_node_content = request.json
-    global fiware_node
+    global fiware_node                                                                
     try:
         fiware_node = FiwareNode(
             name=fiware_node_content['Name'],
@@ -402,6 +761,140 @@ def get_solution():
         return jsonify(sol)
 
     return jsonify(solution)
+
+# -------------------- Create client node --------------------
+
+@app.route('/client_node', methods=['GET', 'POST'])
+def create_client_node():
+    client_node_content = request.json # we need to get the name, commection adress and domain from the aml dashboard user
+    global client_node
+
+    if client_node_content['Transport Protocol'] == 'UDP':
+        transport_protocol = TransportProtocol_udp
+    elif client_node_content['Transport Protocol'] == 'TCP':
+        transport_protocol = TransportProtocol_tcp
+    else:
+        return jsonify({'Error': 'Transport Protocol not supported'})
+
+    try:
+        
+        adress = Address(
+            ip = client_node_content['IP Address'],
+            port = client_node_content['Address Port'],
+            external_port = client_node_content['External Address Port'],
+            transport_protocol = transport_protocol
+        )
+
+        client_node = ClientNode(
+            name=client_node_content['Name'],
+            connection_addresses=[adress],
+            domain=client_node_content['Domain']
+        )
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        print(f'There has been an error while trying to create the Client Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to create the Client Node {e}'})
+
+# -------------- Stop and Delete client node -----------------
+
+@app.route('/client_node/stop', methods=['GET', 'POST'])
+def stop_client_node():
+    global client_node
+    try:
+        del client_node
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        print(f'There has been an error while trying to stop the Client Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to stop the Client Node {e}'})
+
+# -------------------- Create server node --------------------
+
+@app.route('/server_node', methods=['GET', 'POST'])
+def create_server_node():
+    server_node_content = request.json # we need to get the name, commection adress and domain from the aml dashboard user
+    global server_node
+
+    if server_node_content['Transport Protocol'] == 'UDP':
+        transport_protocol = TransportProtocol_udp
+    elif server_node_content['Transport Protocol'] == 'TCP':
+        transport_protocol = TransportProtocol_tcp
+    else:
+        return jsonify({'Error': 'Transport Protocol not supported'})
+
+    try:
+        print(server_node_content)
+        adress = Address(
+            ip = server_node_content['IP Address'],
+            port = server_node_content['Address Port'],
+            external_port = server_node_content['External Address Port'],
+            transport_protocol = transport_protocol
+        )
+
+        server_node = ServerNode(
+            name=server_node_content['Name'],
+            listening_addresses=[adress],
+            domain=server_node_content['Domain']
+        )
+        return jsonify({'message': 'OK'})
+    
+    except Exception as e:
+        print(f'There has been an error while trying to create the Server Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to create the Server Node {e}'})
+    
+# --------------- Stop and Delete server node ----------------
+
+@app.route('/server_node/stop', methods=['GET', 'POST'])
+def stop_server_node():
+    global server_node
+    try:
+        del server_node
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        print(f'There has been an error while trying to stop the Server Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to stop the Server Node {e}'})
+
+# ------------------- Create repeater node ------------------
+
+@app.route('/repeater_node', methods=['GET', 'POST'])
+def create_repeater_node():
+    repeater_node_content = request.json
+    global repeater_node
+    if repeater_node_content['Transport Protocol'] == 'UDP':
+        transport_protocol = TransportProtocol_udp
+    elif repeater_node_content['Transport Protocol'] == 'TCP': 
+        transport_protocol = TransportProtocol_tcp
+    else:
+        return jsonify({'Error': 'Transport Protocol not supported'})
+    try:
+        adress = Address(
+            ip = repeater_node_content['IP Address'],
+            port = repeater_node_content['Address Port'],
+            external_port = repeater_node_content['External Address Port'],
+            transport_protocol = transport_protocol
+        )
+
+        repeater_node = RepeaterNode(
+            name=repeater_node_content['Name'],
+            listening_addresses=[adress]
+        )
+
+        return jsonify({'message': 'OK'})
+    
+    except Exception as e:
+        print(f'There has been an error while trying to create the Repeater Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to create the Repeater Node {e}'})
+
+# ------------ Stop and Delete repeater node ----------------
+
+@app.route('/repeater_node/stop', methods=['GET', 'POST'])
+def stop_repeater_node():
+    global repeater_node
+    try:
+        del repeater_node
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        print(f'There has been an error while trying to stop the Repeater Node {e}')
+        return jsonify({'Error': f'There has been an error while trying to stop the Repeater Node {e}'})
 
 if __name__ == "__main__":
 

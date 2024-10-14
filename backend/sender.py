@@ -60,40 +60,53 @@ class CustomModelReplier(ModelReplier):
             print(f'Error reading training set file: {e}')  
             exit(1) 
 
+class SenderNode():
+    def __init__(self):
+        # Create ID
+        id_sender = AmlipIdDataType('ModelManagerSender')
+
+        # Create node
+        self.model_sender_node = ModelManagerSenderNode(
+            id=id_sender,
+            domain=DOMAIN_ID)
+
+        print(f'Node created: {self.model_sender_node.get_id()}. '
+              'Already processing models.')
+
+    def run(self, data = {
+             'name': 'MobileNet V1',
+             'size': 56 
+        }):
+        # Start node
+        self.model_sender_node.start(
+            listener=CustomModelReplier())
+        
+        statistics_dump = pkl.dumps(data)
+
+        print('\n\nPublish statistics: \n')
+        print(data)
+        print('\n')
+
+        self.model_sender_node.publish_statistics(
+            'ModelManagerSenderStatistics',
+            statistics_dump)
+
+    def stop(self):
+        self.model_sender_node.stop()
+        print('Finishing Model Manager Sender Node Py execution.')
+    
+    def delete(self):
+        del self.model_sender_node
 
 def main():
     """Execute main routine."""
 
-    # Create ID
-    id_sender = AmlipIdDataType('ModelManagerSender')
 
     # Create node
-    model_sender_node = ModelManagerSenderNode(
-        id=id_sender,
-        domain=DOMAIN_ID)
-
-    print(f'Node created: {model_sender_node.get_id()}. '
-          'Already processing models.')
-
-     #e.g. statistics data
-    data = {
-         'name': 'MobileNet V1',
-         'size': 56
-     }
+    model_sender_node = SenderNode()
 
     # Start node
-    model_sender_node.start(
-        listener=CustomModelReplier())
-
-    statistics_dump = pkl.dumps(data)
-
-    print('\n\nPublish statistics: \n')
-    print(data)
-    print('\n')
-
-    model_sender_node.publish_statistics(
-        'ModelManagerSenderStatistics',
-        statistics_dump)
+    model_sender_node.run()
 
     # Wait for signal
     def handler(signum, frame):
@@ -104,7 +117,6 @@ def main():
     # Stop node
     model_sender_node.stop()
 
-    print('Finishing Model Manager Sender Node Py execution.')
 
 
 # Call main in program execution
