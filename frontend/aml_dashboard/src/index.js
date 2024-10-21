@@ -25,10 +25,12 @@ import {
   webcam
 } from '@marcellejs/core';
 
-
+import { widget } from './components';
+import {dashboard as amlip} from './components'
 import '@tensorflow-models/hand-pose-detection';
 import * as handPoseDetection from '@tensorflow-models/hand-pose-detection';
 import { dropout } from '@tensorflow/tfjs-core';
+
 
 const model_hand = handPoseDetection.SupportedModels.MediaPipeHands;
 const detectorConfig = {
@@ -557,6 +559,7 @@ create_fiware.$click.subscribe( async () => {
       fiware_node_status.$value.set('<p>Not Created </p> ');
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
+      create_fiware.$disabled.set(true);
       fiware_node_status.$value.set('<h2>Created !</h2>'); 
     }
 
@@ -754,6 +757,13 @@ function fetchStatus() {
 // Fetch the status every 1 seconds
 setInterval(fetchStatus, 1000); // 1000 milliseconds = 1 seconds
 
+// -----------------------------------------------------------
+// AML-IP Management
+// -----------------------------------------------------------
+
+const amlip_widget = widget({
+      url: 'index1.html',  // Pass the URL to be embedded
+  });
 
 // -----------------------------------------------------------
 // DASHBOARDS
@@ -768,12 +778,13 @@ dash
   .page('Data Management')
   .sidebar(input, instanceViewer)
   .use([label, capture], trainingSetBrowser);
-dash.page('Training').sidebar(b_train_AML, n_jobs, controls, textAMLTrainStatus).use(b, params, prog, plotTraining);
-dash.page('Fetching').sidebar(collaborative_status).use(search_statistics, statistics_received, request_model, model_received);
+dash.page('Training').sidebar(b_train_AML, n_jobs, controls, textAMLTrainStatus).use([b], [params], [prog], [plotTraining]);
+dash.page('Fetching').sidebar(collaborative_status).use([search_statistics], [statistics_received], [request_model], [model_received]);
 dash.page('Batch Prediction').use( [predictButtonAML, confMatAML], [predictButton, confMat]);
 dash.page('Real-time Prediction').sidebar(togAML, togNN, input).use([plotResultsNN, plotResultsAML]);
-dash.page('Context broker').sidebar(create_fiware, fiware_node, fiware_node_status).use(upload_data, post_data, data_status, get_solution, solution_status);
-dash.page('Status').use(tst);
-dash.settings.dataStores(store, store2).datasets(trainingSet).models(classifier).predictions(batchMLP);
+dash.page('Context broker').sidebar(create_fiware, fiware_node, fiware_node_status).use([upload_data], [post_data], [data_status], [get_solution], [solution_status]);
+dash.page('AML-IP',false).sidebar(amlip_widget)
+dash.page('Status').use([tst]);
+dash.settings.dataStores(store, store2).datasets(trainingSet).models(classifier).predictions(batchMLP).use([]);
 
 dash.show();

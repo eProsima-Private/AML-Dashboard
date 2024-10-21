@@ -22,8 +22,8 @@ Firstly, some Python dependencies are required. This version of the AML-Dashboar
 Create a virtual environment and install Python dependencies.
 
 ```bash   
-    python3 -m venv fastdds-docs-venv
-    source fastdds-docs-venv/bin/activate
+    python3 -m venv amlip-venv
+    source amlip-venv/bin/activate
     wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/requirements.txt
     pip3 install -r requirements.txt
 ```
