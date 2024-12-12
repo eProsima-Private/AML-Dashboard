@@ -103,3 +103,10 @@ MANIFEST
 
 # Engine
 */aml_engine/
+
+# Frontend
+frontend_aml_ip
+backend/RESULTS
+backend/sensors*
+backend/files_uploaded
+backend/Custom_Dataset

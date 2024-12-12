@@ -1,7 +1,22 @@
+// Copyright 2024 Proyectos y Sistemas de Mantenimiento SL (eProsima).
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import '@marcellejs/core/dist/marcelle.css';
 import {
   button,
   modelParameters,
+  select,
   Stream,
   text,
   throwError
@@ -433,6 +448,8 @@ stop_delete_inference.$click.subscribe( async () => {
 // AGENT NODE
 // -----------------------------------------------------------
 
+const transport_protocol = select(['TCP', 'UDP'], 'TCP');
+transport_protocol.title = 'Choose the Transport Protocol';
 
 // Client Node
 // -----------------------------------------------------------
@@ -442,10 +459,8 @@ const client_node_params = {
   parameters: {
     'Name': new Stream('MyClientNode', true),
     'Domain': new Stream(0, true),
-    'IP Address': new Stream('192.168.1.153', true),
-    'Address Port': new Stream( 12121, true),
-    'External Address Port': new Stream(12121, true),
-    'Transport Protocol': new Stream('UDP', true),
+    'Server IP Address': new Stream('192.168.1.153', true),
+    'Server Address Port': new Stream( 12121, true),
   },
 };
 
@@ -473,6 +488,7 @@ create_client_node.$click.subscribe( async () => {
   for (let param in client_node_params.parameters) {
     parameters[param] = client_node_params.parameters[param].value;
   }
+  parameters['Transport Protocol'] = transport_protocol.$value.get();
 
   fetch(url_create_client_node,  {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
@@ -544,10 +560,8 @@ const server_node_params = {
   parameters: {
     'Name': new Stream('MyServerNode', true),
     'Domain': new Stream(0, true),
-    'IP Address': new Stream('192.168.1.153', true),
-    'Address Port': new Stream( 12121, true),
-    'External Address Port': new Stream(12121, true),
-    'Transport Protocol': new Stream('UDP', true),
+    'Server IP Address': new Stream('192.168.1.153', true),
+    'Server Address Port': new Stream( 12121, true),
   },
 };
 
@@ -574,7 +588,7 @@ create_server_node.$click.subscribe( async () => {
   for (let param in server_node_params.parameters) {
     parameters[param] = server_node_params.parameters[param].value;
   }
-
+  parameters['Transport Protocol'] = transport_protocol.$value.get();
   fetch(url_create_server_node,  {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
     mode: "cors", // no-cors, *cors, same-origin
@@ -646,8 +660,6 @@ const repeater_node_params = {
     'Name': new Stream('MyRepeaterNode', true),
     'IP Address': new Stream('192.168.1.153', true),
     'Address Port': new Stream( 12121, true),
-    'External Address Port': new Stream(12121, true),
-    'Transport Protocol': new Stream('UDP', true),
   },
 };
 
@@ -675,7 +687,7 @@ create_repeater_node.$click.subscribe( async () => {
   for (let param in repeater_node_params.parameters) {
     parameters[param] = repeater_node_params.parameters[param].value;
   }
-
+  parameters['Transport Protocol'] = transport_protocol.$value.get();
   fetch(url_create_repeater_node,  {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
     mode: "cors", // no-cors, *cors, same-origin
@@ -744,7 +756,7 @@ delete_repeater_node.$click.subscribe( async () => {
 const new_dash = dashboard({
 });
 
-new_dash.page('Agent Node', false).use([client_node_status, server_node_status, repeater_node_status], [create_client_node, create_server_node, create_repeater_node], [client_node, server_node, repeater_node], [delete_client_node, delete_server_node, delete_repeater_node]);
+new_dash.page('Agent Node', false).use([client_node_status, server_node_status, repeater_node_status], [create_client_node, create_server_node, create_repeater_node], [client_node, server_node, repeater_node], transport_protocol, [delete_client_node, delete_server_node, delete_repeater_node]);
 new_dash.page('Computing Node').sidebar(computing_node_status, create_computing).use(comp_stop_node, [stop_computing, run_computing,stop_delete_computing]);
 new_dash.page('Inference Node').sidebar(inference_node_status, create_inference).use( inference_stop_node, [stop_inference, run_inference, stop_delete_inference]);
 new_dash.page('Sender Node').sidebar(sender_node_status).use([create_sender, stop_delete_sender]);

@@ -15,7 +15,7 @@
 import pickle as pkl
 import signal
 import os
-
+import json
 
 from py_utils.wait.BooleanWaitHandler import BooleanWaitHandler
 
@@ -43,7 +43,6 @@ class CustomModelReplier(ModelReplier):
         print(request.to_string())
         print('\n')
         
-
         # Get the path to the Downloads directory
         downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
         
@@ -72,15 +71,37 @@ class SenderNode():
 
         print(f'Node created: {self.model_sender_node.get_id()}. '
               'Already processing models.')
+    def run(self):
 
-    def run(self, data = {
-             'name': 'MobileNet V1',
-             'size': 56 
-        }):
         # Start node
         self.model_sender_node.start(
             listener=CustomModelReplier())
         
+        # Get the path to the Downloads directory
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        
+        # Determine the path to the most recent model file
+        model_path=use_most_recent_file(downloads_path, "model_")
+        
+        try:
+            with open(model_path, 'r') as file:
+                file_data = file.read()
+            json_data = json.loads(file_data)
+        except Exception as e:
+            print(f'Error reading training set file: {e}')  
+            exit(1) 
+    
+        # Use the name of and the size of the model as statistics
+        try:
+            data = {
+                'name': json_data['model_name'],
+                'size': json_data['model_size']
+            }
+        except Exception as e:
+            data = {
+                'name': 'Sensors',
+                'size': file_data.__sizeof__()
+            }
         statistics_dump = pkl.dumps(data)
 
         print('\n\nPublish statistics: \n')
@@ -116,8 +137,6 @@ def main():
 
     # Stop node
     model_sender_node.stop()
-
-
 
 # Call main in program execution
 if __name__ == '__main__':

@@ -19,6 +19,7 @@ import signal
 from amlip_py.node.AsyncInferenceNode import AsyncInferenceNode, InferenceReplierLambda
 from amlip_py.types.InferenceSolutionDataType import InferenceSolutionDataType
 
+from AML_binary_classifier import calculate_misses
 from aml_model_processing import process_model_data
 from utils import use_most_recent_file
 
@@ -27,27 +28,6 @@ DOMAIN_ID = 166
 class InferenceNode():
 
     def __init__(self):
-
-    # Get the path to the Downloads directory
-        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
-        # Create the full path to the most recent file
-        training_path=use_most_recent_file(downloads_path, "training_set_")
-        model_path=use_most_recent_file(downloads_path, "model_")
-        try:
-            with open(model_path, 'r') as file:
-                json = file.read()
-        except Exception as e:
-            print(f'Error reading model file: {e}')
-            exit(1)
-        try:
-            with open(training_path, 'r') as file:
-                training_set = file.read()
-        except Exception as e:
-            print(f'Error reading training set file: {e}')
-            exit(1)
-        global aml_model_predict
-        aml_model_predict = process_model_data(json, training_set)
-        ##
 
         print('Starting Async Inference Node Py execution. Creating Node...')
         self.inference_node = AsyncInferenceNode(
@@ -77,10 +57,44 @@ class InferenceNode():
         inference,
         task_id,
         client_id):
-        data = json.loads(inference.to_string())
-
+        
+        # Get the path to the Downloads directory
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        # Create the full path to the most recent file
+        training_path=use_most_recent_file(downloads_path, "training_set_")
+        model_path=use_most_recent_file(downloads_path, "model_")
+        try:
+            with open(model_path, 'r') as file:
+                json_file = file.read()
+            json_data = json.loads(json_file)
+        except Exception as e:
+            print(f'Error reading model file: {e}')
+            exit(1)
+        try:
+            with open(training_path, 'r') as file:
+                training_set = file.read()
+        except Exception as e:
+            print(f'Error reading training set file: {e}')
+            exit(1)
+        
         global aml_model_predict
-        pred = aml_model_predict(data)
+
+        data = json.loads(inference.to_string().replace("'",'"'))
+
+        try:
+            model = json_data['model_name']
+        except:
+            model = 'Sensors'
+
+        if model == 'Sensors':
+            aml_model_predict = process_model_data(json_file, training_set)
+            pred = aml_model_predict(data['data'])
+        else:
+            aml_model_predict = calculate_misses(training_set, json_file)
+            print(aml_model_predict)
+            pred = aml_model_predict(data['data'])
+
+        print('pred: ' + str(pred))
         inference_solution = InferenceSolutionDataType(json.dumps(pred))
 
         print(f'Data received from client: {client_id}\n'

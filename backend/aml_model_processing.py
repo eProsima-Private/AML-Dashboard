@@ -19,7 +19,7 @@ from train_gestures import train_class, ModelConverter
 from gesture_embedding import learn_prep_knn,  learn_prep_bayes
 
 # Train the AML model
-def train_alma(x, y, n_iter_max, prep='bayes'):
+def train_alma(x, y, n_iter_max, prep='bayes', uploaded_atomization = False):
     # Get the classes and their count
     lst_classes = list(np.unique(y))
     n_classes = len(lst_classes)
@@ -45,7 +45,7 @@ def train_alma(x, y, n_iter_max, prep='bayes'):
     for out_class in lst_classes:
         # Train a model for the current class
         cmanager, lst_atoms = train_class(lst_classes.index(out_class), n_classes, './',
-                                           X_train, y_train, X_test, y_test, arr_feat_range, n_iter_max)
+                                           X_train, y_train, X_test, y_test, arr_feat_range, n_iter_max, uploaded_atomization)
 
         conv = ModelConverter(cmanager, lst_atoms, lst_classes.index(out_class))
         feat_conv = conv.get_const_map(arr_feat_range)
@@ -149,7 +149,8 @@ def process_model_data(json_str, training_set_str):
             lst_cum.append(sum_misses)
         for i_n_misses in range(max_misses): 
             #TODO: Take into account that division by zero is possible. Check if this is correct.
-            lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses)
+            if sum_misses != 0:
+                lst_cum[i_n_misses] = 1.0 - (lst_cum[i_n_misses] / sum_misses)
         map_p_per_miss_per_class[cl] = lst_cum
 
     def aml_model_predict(x_raw):
