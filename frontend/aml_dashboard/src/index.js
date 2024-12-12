@@ -372,7 +372,7 @@ uploadAtomization.$files.subscribe((x) => {
   const FileExtension = /.aml$/;
   const checkFileExtension = x[0].name.match(FileExtension);
   if (checkFileExtension === null) {
-    throwError(new Error('Invalid file extension. Please upload a .json or .aml file'));
+    throwError(new Error('Invalid file extension. Please upload a .aml file'));
   } else {
     let formData = new FormData();
     formData.append("file", x[0]);
