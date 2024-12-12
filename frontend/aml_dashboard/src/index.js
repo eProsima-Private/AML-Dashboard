@@ -352,7 +352,10 @@ let atomizationUploaded = false;
 
 function get_last_uploaded_atomization() {
   const storedDataset = localStorage.getItem('instances-atomization-storage');
-
+  if (storedDataset === null) {
+    const defaultDataset = text('No file uploaded');
+    return defaultDataset;
+  }
   if (Object.keys(storedDataset).length != 2) {
     const dataset = JSON.parse(storedDataset);
     const firstKey = Object.keys(dataset)[0];
