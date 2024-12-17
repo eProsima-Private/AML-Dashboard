@@ -39,9 +39,15 @@ from utils import save_in_format
 
 # Global variables
 
+frontend_state = {}
+frontend_state['sessionStore'] = []
 # Stores the status data, including a list of nodes
 status_data = {}
 status_data['nodes'] = []
+
+# Stores a list of all the nodes created
+save_nodes = {}
+save_nodes['nodes'] = []
 # Holds the statistics data 
 statistics_data = None
 # Holds the model data 
@@ -110,12 +116,14 @@ class CustomStatusListener(StatusListener):
         print(f'Received {status} in Node {self.node_id_}.')
 
         global status_data
+        global save_nodes
 
         data = {}
         data['ID'] = status.id().to_string()
         data['Kind'] = node_kind_map.get(status.node_kind())
         data['State'] = state_map.get(status.state())
 
+        save_nodes['nodes'].append(data)
         status_data['nodes'].append(data)
 
 # Custom statistics/model listener
@@ -303,7 +311,11 @@ def load_dataset(Model):
 def add_status():
 
     global status_data
-
+    global frontend_state
+    if frontend_state['sessionStore'] == 'empty':
+        return_data = save_nodes
+        return jsonify(return_data)
+    
     return_data = status_data
     status_data = {}
     status_data['nodes'] = []
@@ -1042,6 +1054,25 @@ def stop_repeater_node():
     except Exception as e:
         print(f'There has been an error while trying to stop the Repeater Node {e}')
         return jsonify({'Error': f'There has been an error while trying to stop the Repeater Node {e}'})
+    
+##############################################################
+###                       HEALTH CHECK                     ###
+##############################################################
+
+@app.route('/health-check', methods=['GET', 'POST'])
+def health_check():
+    return jsonify({'message': 'OK'})
+
+@app.route('/health-check/amlip', methods=['GET', 'POST'])
+def health_check_amlip():
+    
+    try:
+        global frontend_state
+        frontend_state = request.json
+        return jsonify({'message': 'OK'})
+    except Exception as e:
+        print(f'There has been an error while trying to check the AML IP health {e}')
+        return jsonify({'Error': f'There has been an error while trying to check the AML IP health'})
 
 if __name__ == "__main__":
 
