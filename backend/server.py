@@ -190,6 +190,7 @@ class CustomInferenceListener(InferenceSolutionListener):
             f' inference: {inference.to_string()}')
 
         global inference_data
+        inference_data = None
         inference_data = json.loads(inference.to_string())
 
         global waiter_inference
@@ -818,7 +819,7 @@ def add_inference():
     data_model = {'data' : content['data']}
     print(data_model)
     global inference_data
-    inference_data = None
+
     data = json.dumps(data_model)
 
     inference = InferenceDataType(data)
