@@ -61,17 +61,12 @@ Alternatively, you can use the **AML-Dashboard Docker** image with all dependenc
 Here's how you can build the Docker image from the provided [Dockerfile](Dockerfile). Simply execute the following command from the top-level directory:
 
 ```bash
-docker build -t amlip --no-cache -f Dockerfile .
+docker compose up
 ```
-
-Run the docker container executing the following command:
+After the containers are built move your ``aml_engine``folder from your machine to the docker backend.
 
 ```bash
-docker run -it \
-    --net=host \
-    --ipc=host \
-    --privileged \
-    amlip
+docker cp <route_to_aml_engine/aml_engine> aml-dashboard-amldashboard-backend-1:/AML-Dashboard/backend/
 ```
 
 ## Execution
