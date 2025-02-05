@@ -1,6 +1,6 @@
 
 #########################################################################################
-# AML-IP Dockerfile
+# AML-Dashboard Frontend Dockerfile
 #########################################################################################
 
 FROM ubuntu:jammy
@@ -10,8 +10,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Use a bash shell so it is possigle to run things like `source` (required for colcon builds)
 SHELL ["/bin/bash", "-c"]
-
-ARG amlip_branch="main"
 
 # Avoid interactuation with installation of some package that needs the locale.
 ENV TZ=Europe/Madrid
@@ -48,6 +46,5 @@ RUN git clone https://github.com/eProsima-Private/AML-Dashboard.git && \
     npm i @tensorflow/tfjs
 
 
-# Source built workspace
-# Source built workspace when running the container
+# Source built workspace and start the frontend
 CMD ["bash", "-c", "cd /AML-Dashboard/frontend/aml_dashboard && npm run dev"]

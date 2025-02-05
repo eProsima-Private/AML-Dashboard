@@ -58,15 +58,41 @@ By following these steps, you'll have AML-Dashboard up and running, equipped wit
 
 Alternatively, you can use the **AML-Dashboard Docker** image with all dependencies pre-installed.
 
-Here's how you can build the Docker image from the provided [Dockerfile](Dockerfile). Simply execute the following command from the top-level directory:
+Here's how you can build and run the docker containers:
+
+1. Create a working directory and navigate into it:
 
 ```bash
-docker compose up
+mkdir AML-Dashboard
+cd AML-Dashboard
 ```
-After the containers are built move your ``aml_engine``folder from your machine to the docker backend.
+
+2. Download the required Dockerfiles and docker-compose.yml:
+
+```bash
+wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/refs/heads/feature/add_dockerfile/Dockerfile_Frontend
+wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/refs/heads/feature/add_dockerfile/Dockerfile_Backend
+wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/refs/heads/feature/add_dockerfile/docker-compose.yml
+```
+
+3. Start the services using docker-compose:
+
+```bash
+docker compose up -d
+```
+
+4. After the containers are built move your ``aml_engine``folder from your machine to the docker backend.
 
 ```bash
 docker cp <route_to_aml_engine/aml_engine> aml-dashboard-amldashboard-backend-1:/AML-Dashboard/backend/
+```
+
+The AML Dashboard will be available at [http://localhost:5173](http://localhost:5173).
+
+5. To stop the services, execute the following command:
+
+```bash
+docker compose down
 ```
 
 ## Execution
