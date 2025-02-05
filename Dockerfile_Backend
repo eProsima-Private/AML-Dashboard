@@ -1,0 +1,72 @@
+#########################################################################################
+# AML-IP Dockerfile with Miniconda (Python 3.11)
+#########################################################################################
+
+FROM ubuntu:jammy
+
+# Avoid interactions during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Use bash shell for compatibility
+SHELL ["/bin/bash", "-c"]
+
+ARG amlip_branch="main"
+
+# Avoid interaction with package installations
+ENV TZ=Europe/Madrid
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Install system dependencies
+RUN apt update && \
+    apt install -y software-properties-common wget git cmake g++ libasio-dev \
+        libssl-dev libtinyxml2-dev libyaml-cpp-dev swig && \
+    apt clean && rm -rf /var/lib/apt/lists/*
+
+# Install Miniconda
+ENV CONDA_DIR=/opt/conda
+ENV PATH=$CONDA_DIR/bin:$PATH
+
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
+    chmod +x /tmp/miniconda.sh && \
+    /tmp/miniconda.sh -b -p $CONDA_DIR && \
+    rm /tmp/miniconda.sh && \
+    conda update -n base -c defaults conda
+
+# Create Conda environment with Python 3.11
+RUN conda create -y -n aml_env python=3.11 && conda clean -afy
+RUN conda install -n aml_env -y -c conda-forge libstdcxx-ng=12
+
+# Activate Conda environment and install required Python packages
+RUN bash -c "source activate aml_env && \
+    pip install -U colcon-common-extensions vcstool \
+        astropy==5.3.4 blinker==1.7.0 cffi==1.16.0 click==8.1.7 Flask==3.0.0 \
+        Flask-Cors==4.0.0 itsdangerous==2.1.2 Jinja2==3.1.2 joblib==1.3.2 \
+        keras==3.5.0 MarkupSafe==2.1.3 msgpack==1.0.7 numpy==1.26.1 \
+        packaging==23.2 pandas==2.1.2 pillow==11.1.0 pycparser==2.21 \
+        pyerfa==2.0.1.1 python-dateutil==2.8.2 python-mnist==0.7 \
+        pytz==2023.3.post1 PyYAML==6.0.1 requests==2.32.3 scikit-learn==1.3.2 \
+        scipy==1.11.3 six==1.16.0 threadpoolctl==3.2.0 tqdm==4.66.1 \
+        tzdata==2023.3 Werkzeug==3.0.1 && \
+    pip install tensorflow[and-cuda]"
+
+# Install AML-IP
+WORKDIR /AML-IP
+RUN source activate aml_env && \
+    mkdir src && \
+    wget https://raw.githubusercontent.com/eProsima/AML-IP/$amlip_branch/amlip.repos && \
+    vcs import src < amlip.repos && \
+    cd src/amlip && \
+    git checkout $amlip_branch && \
+    cd ../.. && \
+    colcon build
+
+# Clone backend source code
+WORKDIR /
+RUN git clone https://github.com/eProsima-Private/AML-Dashboard.git && \
+    cd /AML-Dashboard && \
+    git checkout fix/manage_data_persistence_in_browser
+
+WORKDIR /AML-Dashboard/backend
+
+# Activate Conda environment on container startup
+CMD ["bash", "-c", "source activate aml_env && source /AML-IP/install/setup.bash && python /AML-Dashboard/backend/server.py"]

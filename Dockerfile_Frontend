@@ -1,0 +1,53 @@
+
+#########################################################################################
+# AML-IP Dockerfile
+#########################################################################################
+
+FROM ubuntu:jammy
+
+# Avoids using interactions during building
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Use a bash shell so it is possigle to run things like `source` (required for colcon builds)
+SHELL ["/bin/bash", "-c"]
+
+ARG amlip_branch="main"
+
+# Avoid interactuation with installation of some package that needs the locale.
+ENV TZ=Europe/Madrid
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Download system dependencies
+RUN apt update && \
+    apt install -y software-properties-common && \
+    apt update && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt update && \
+    apt install -y \
+        cmake \
+        g++ \
+        git \
+        libasio-dev \
+        libssl-dev \
+        libtinyxml2-dev \
+        libyaml-cpp-dev \
+        pip \
+        swig \
+        wget \
+        npm \
+        nodejs
+
+
+# Copy frontend source code from host
+WORKDIR /
+RUN git clone https://github.com/eProsima-Private/AML-Dashboard.git && \
+    cd AML-Dashboard && \
+    git checkout fix/manage_data_persistence_in_browser && \
+    cd frontend/aml_dashboard && \
+    npm i && \
+    npm i @tensorflow/tfjs
+
+
+# Source built workspace
+# Source built workspace when running the container
+CMD ["bash", "-c", "cd /AML-Dashboard/frontend/aml_dashboard && npm run dev"]
