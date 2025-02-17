@@ -22,8 +22,8 @@ Firstly, some Python dependencies are required. This version of the AML-Dashboar
 Create a virtual environment and install Python dependencies.
 
 ```bash   
-    python3 -m venv amlip-venv
-    source amlip-venv/bin/activate
+    python3 -m venv aml-ip-venv
+    source aml-ip-venv/bin/activate
     wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/requirements.txt
     pip3 install -r requirements.txt
 ```
@@ -58,20 +58,41 @@ By following these steps, you'll have AML-Dashboard up and running, equipped wit
 
 Alternatively, you can use the **AML-Dashboard Docker** image with all dependencies pre-installed.
 
-Here's how you can build the Docker image from the provided [Dockerfile](Dockerfile). Simply execute the following command from the top-level directory:
+Here's how you can build and run the docker containers:
+
+1. Create a working directory and navigate into it:
 
 ```bash
-docker build -t amlip --no-cache -f Dockerfile .
+mkdir AML-Dashboard
+cd AML-Dashboard
 ```
 
-Run the docker container executing the following command:
+2. Download the required Dockerfiles and docker-compose.yml:
 
 ```bash
-docker run -it \
-    --net=host \
-    --ipc=host \
-    --privileged \
-    amlip
+wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/Dockerfile_Frontend
+wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/Dockerfile_Backend
+wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/docker-compose.yml
+```
+
+3. Start the services using docker-compose:
+
+```bash
+docker compose up -d
+```
+
+4. After the containers are built move your ``aml_engine``folder from your machine to the docker backend.
+
+```bash
+docker cp <route_to_aml_engine/aml_engine> aml-dashboard-amldashboard-backend-1:/AML-Dashboard/backend/
+```
+
+The AML Dashboard will be available at [http://localhost:5173](http://localhost:5173).
+
+5. To stop the services, execute the following command:
+
+```bash
+docker compose down
 ```
 
 ## Execution

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  amldashboard-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile_Backend
+      no_cache: true
+    volumes:
+      - "${HOME}/Downloads:/root/Downloads"  # Maps Downloads dynamically
+    environment:
+      - DOWNLOADS_PATH=/root/Downloads
+    network_mode: "host"
+    ipc: "host"
+    privileged: true
+    stdin_open: true
+    tty: true
+  
+  amldashboard-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile_Frontend
+      no_cache: true
+    network_mode: "host"
+    ipc: "host"
+    privileged: true
+    stdin_open: true
+    tty: true
