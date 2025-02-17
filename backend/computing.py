@@ -19,6 +19,8 @@ from amlip_py.node.AsyncComputingNode import AsyncComputingNode, JobReplierLambd
 from amlip_py.types.JobSolutionDataType import JobSolutionDataType
 
 from aml_model_processing import train_alma
+from AML_binary_classifier import train_binary_classifier
+
 
 # Domain ID
 DOMAIN_ID = 166
@@ -59,14 +61,27 @@ class ComputingNode():
         x_index = data.find('x: ')
         y_index = data.find(' y: ')
         n_iter_index = data.find(' n_iter: ')
+        target_class_index = data.find(' target_class: ')
+        model_index = data.find(' model: ')
+        atomization_index = data.find(' atomization_uploaded: ')
         # Extract the substring between 'x: ' and ' y: ' to get the value of x
         x = json.loads(data[x_index + len('x: '):y_index])
         # Extract the substring between ' y: ' and ' n_iter: ' to get the value of y
         y = json.loads(data[y_index + len(' y: '):n_iter_index])
         # Extract the substring from ' n_iter: ' to the end of the string to get the value of n_iter
-        n_iter = int(data[n_iter_index + len(' n_iter: '):])
+        n_iter = int(data[n_iter_index + len(' n_iter: '):target_class_index])
+        # Extract the substring from ' target_class: ' to the end of the string to get the value of target_class
+        target_class = int(data[target_class_index + len(' target_class: '):model_index])
+        # Extract the substring from ' model: ' to the end of the string to get the value of model
+        model_type = data[model_index + len(' model: '):atomization_index]
+        # Extract the substring from ' atomization_uploaded: ' to the end of the string to get the value of atomization_uploaded
+        atomization_uploaded = bool(data[atomization_index + len(' atomization_uploaded: '):] == 'True')
         print('Received job, calling train_alma')
-        model = train_alma(x, y, n_iter)
+        if model_type == 'Sensors':
+            model = train_alma(x, y, n_iter)
+        else: 
+            print ('calling train_binary_classifier')
+            model = train_binary_classifier(model_type, x, y, target_digit=target_class, iterations=n_iter, uploaded_atomization=atomization_uploaded)
         print('train_alma finished!')
         solution = JobSolutionDataType(json.dumps(model))
         return solution
@@ -77,12 +92,9 @@ def main():
     # Create node
     computing_node = ComputingNode()
 
-    # Create job data
-
     # Start node
     computing_node.run()
 
-    
     # Wait for signal
     def handler(signum, frame):
         pass
@@ -91,7 +103,6 @@ def main():
 #
     ## Stop node
     computing_node.stop()
-
 
 # Call main in program execution
 if __name__ == '__main__':

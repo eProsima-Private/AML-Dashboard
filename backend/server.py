@@ -1,5 +1,6 @@
 import json
 import random
+import os
 import pickle as pkl
 import threading
 import default_values
@@ -33,6 +34,9 @@ from amlip_py.types.ModelReplyDataType import ModelReplyDataType
 from amlip_py.types.ModelRequestDataType import ModelRequestDataType
 from amlip_py.types.ModelStatisticsDataType import ModelStatisticsDataType
 
+from loadDatasets import loadMedMnist, loadCIFAR10, loadKMNIST, loadMNIST
+from utils import save_in_format
+
 # Global variables
 
 # Stores the status data, including a list of nodes
@@ -46,6 +50,8 @@ model_data = None
 solution_data = None
 # Holds the information of the created computing nodes
 computing_nodes = {}
+# Boolean to check if the atomization file has been uploaded
+atomization_uploaded = False
 # Holds the information of the created inference nodes
 inference_nodes = {}
 # Holds the information of the stopped computing nodes
@@ -60,8 +66,6 @@ waiter_model=BooleanWaitHandler(True, False)
 waiter_job=IntWaitHandler(True)
 # BooleanWaitHandler object to manage waiting for inference solution
 waiter_inference = BooleanWaitHandler(True, False)
-
-
 
 app = Flask(__name__)
 CORS(app)
@@ -186,6 +190,7 @@ class CustomInferenceListener(InferenceSolutionListener):
             f' inference: {inference.to_string()}')
 
         global inference_data
+        inference_data = None
         inference_data = json.loads(inference.to_string())
 
         global waiter_inference
@@ -245,9 +250,54 @@ edge_node = AsyncEdgeNode(
     domain=DOMAIN_ID)
 
 
-############################################################
-########################### FLASK APPS #####################
-############################################################
+##############################################################
+########################### FLASK APPS #######################
+##############################################################
+
+##############################################################
+###                     DATA MANAGEMENT                    ###
+##############################################################
+
+@app.route('/datasets/<Model>', methods=['GET', 'POST'])
+def load_dataset(Model):
+    model = Model
+    if model == 'Sensors':
+        pass
+    elif model == 'MNIST':
+        test_images, test_labels = loadMNIST('MNIST').load_testing()
+        content = save_in_format(test_images.tolist(), test_labels.tolist())
+    elif model == 'KMNIST':
+        test_images, test_labels = loadKMNIST().load_testing()
+        content = save_in_format(test_images.tolist(), test_labels.tolist())
+    elif model == 'MedMNIST':
+        test_images, test_labels = loadMedMnist().load_testing()
+        content = save_in_format(test_images.tolist(), test_labels.tolist())
+    elif model == 'Fashion MNIST':
+        test_images, test_labels = loadMNIST('Fashion_MNIST').load_testing()
+        content = save_in_format(test_images.tolist(), test_labels.tolist())
+    elif model == 'CIFAR10':
+        test_images, test_labels = loadCIFAR10().load_testing()
+        content = save_in_format(test_images.tolist(), test_labels.tolist())
+    elif model == 'Custom':
+        dataset = request.files['file']
+        if os.path.exists('Custom_Dataset') == False:
+            os.mkdir('Custom_Dataset')
+        else:
+            for f in os.listdir('Custom_Dataset'):
+                os.remove(f'Custom_Dataset/{f}')
+    
+        dataset.save(f'Custom_Dataset/{dataset.filename}')
+        print('Dataset uploaded')
+        return jsonify({'message': 'OK'})
+
+    else:
+        return jsonify({'Error': 'Model not found'})
+
+    return jsonify(content)
+
+##############################################################
+###                       STATUS NODE                      ###
+##############################################################
 
 @app.route('/status', methods=['GET', 'POST'])
 def add_status():
@@ -259,6 +309,10 @@ def add_status():
     status_data['nodes'] = []
 
     return jsonify(return_data)
+
+##############################################################
+###                       SENDER NODE                      ###
+##############################################################
 
 # ------------------- Create sender node -------------------
 
@@ -286,7 +340,7 @@ def drop_sender_node():
         print(f'There has been an error while trying to delete the Model Sender Node {e}')
         return jsonify({'Error': f'There has been an error while trying to delete the Model Sender Node {e}'})
     
-# -----------------------------------------------------------
+# -------------------- Fetch statistics ----------------------
 
 @app.route('/fetcher/statistics', methods=['GET', 'POST'])
 def add_statistics():
@@ -302,6 +356,7 @@ def add_statistics():
     waiter_statistics.close()
     return jsonify(statistics)
 
+# -------------------- Fetch model ---------------------------
 
 @app.route('/fetcher/model', methods=['GET', 'POST'])
 def add_model():
@@ -318,6 +373,10 @@ def add_model():
     model = model_data
     model_data = None
     return jsonify(model)
+
+##############################################################
+###                    COMPUTING NODE                      ###
+##############################################################
 
 # ------------------ Create computing node ------------------
 
@@ -475,17 +534,81 @@ def drop_computing_node():
         print(f'There has been an error while trying to delete the Computing Node {e}')
         return jsonify({'Error': f'There has been an error while trying to delete the Computing Node {e}'})
 
-# -----------------------------------------------------------
+# ------------------ Upload atomization file -----------------
 
-@app.route('/train/<nJob>/<nIter>/<percentageData>', methods=['GET', 'POST'])
-def add_message(nJob, nIter, percentageData):
+@app.route('/atomization', methods=['GET', 'POST'])
+def load_atomization():
+    global file
+    file = request.files['file']
+    if os.path.exists('files_uploaded') == False:
+        os.mkdir('files_uploaded')
+    else:
+        for f in os.listdir('files_uploaded'):
+            os.remove(f'files_uploaded/{f}')
+    
+    file.save(f'files_uploaded/{file.filename}')
+
+    global atomization_uploaded
+    atomization_uploaded = True
+    print(file)
+    return jsonify({'message': 'OK'})
+
+# ----------------- Delete atomization file ------------------
+
+@app.route('/atomization/delete', methods=['GET', 'POST'])
+def delete_atomization():
+    global atomization_uploaded
+    atomization_uploaded = False
+    for f in os.listdir('files_uploaded'):
+        os.remove(f'files_uploaded/{f}')
+    return jsonify({'message': 'OK'})
+
+# ----------------------- Train model ------------------------
+
+@app.route('/train/<nJob>/<nIter>/<percentageData>/<Model>/<targetClass>/<atomizationUploaded>', methods=['GET', 'POST'])
+def add_message(nJob, nIter, percentageData, Model, targetClass, atomizationUploaded):
     waiter_job.set_value(0)
-
-    content = request.json
-
+    atomization_uploaded = True if atomizationUploaded == 'true' else False
+    print(atomization_uploaded)
     n_jobs = int(nJob)
     n_iter = int(nIter)
     percentage_data = int(percentageData)
+    target_class = int(targetClass)
+
+    model = Model
+
+    if model == 'Sensors':
+        content = request.json
+    elif model == 'MNIST':
+        training_images, training_labels = loadMNIST('MNIST').load_training()
+        content = {'x': training_images.tolist(), 'y': training_labels.tolist()}
+    elif model == 'KMNIST':
+        training_images, training_labels = loadKMNIST().load_training()
+        content = {'x': training_images.tolist(), 'y': training_labels.tolist()}
+    elif model == 'MedMNIST':
+        training_images, training_labels = loadMedMnist().load_training()
+        content = {'x': training_images.tolist(), 'y': training_labels.tolist()}
+    elif model == 'Fashion MNIST':
+        training_images, training_labels = loadMNIST('Fashion_MNIST').load_training()
+        content = {'x': training_images.tolist(), 'y': training_labels.tolist()}
+    elif model == 'CIFAR10':
+        training_images, training_labels = loadCIFAR10().load_training()
+        content = {'x': training_images.tolist(), 'y': training_labels.tolist()}
+    elif model == 'Custom':
+        try:
+            for f in os.listdir('Custom_Dataset'):
+                with open(f'Custom_Dataset/{f}', 'r') as f:
+                    json_file = f.read()
+                    json_content = json.loads(json_file)
+                    dataset = json_content['instances']
+                    images = [image['x'] for image in dataset]
+                    labels = [label['y'] for label in dataset]
+                    content = {'x': images, 'y': labels}
+        except Exception as e:
+            print(f'Error loading custom dataset: {e}')
+            return jsonify({'Error': f'Error loading custom dataset: {e}'})
+    else:
+        return jsonify({'Error': 'Model not found'})
 
     global solution_data
     solution_data = None
@@ -503,10 +626,11 @@ def add_message(nJob, nIter, percentageData):
 
             # Unzip the sampled data back into separate lists
             sampled_data_x, sampled_data_y = zip(*sampled_zipped_data)
+            print(f'Sampled data: {sampled_data_x} {sampled_data_y}')
 
             # Create job data
             print(f'Node created: {main_node.get_id()}. Creating job...')
-            job_data = JobDataType('x: ' + json.dumps(sampled_data_x) + ' y: ' + json.dumps(sampled_data_y) + ' n_iter: ' + str(n_iter))
+            job_data = JobDataType('x: ' + json.dumps(sampled_data_x) + ' y: ' + json.dumps(sampled_data_y) + ' n_iter: ' + str(n_iter) + ' target_class: ' + str(target_class) + ' model: ' + str(model) + ' atomization_uploaded: ' + str(atomization_uploaded))
 
             # Sending job
             print(f'Job data created with string: {job_data}. Sending request...')
@@ -520,10 +644,13 @@ def add_message(nJob, nIter, percentageData):
     if reason==AwakeReason.timeout:
         print('Timeout reached.')
         return jsonify({'Error': 'Timeout reached.'})
-
     else:
         print('All solutions received.')
         return jsonify(solution_data)
+    
+##############################################################
+###                    INFERENCE NODE                      ###
+##############################################################
 
 # ------------------ Create inference node ------------------
 
@@ -681,18 +808,19 @@ def drop_inference_node():
         print(f'There has been an error while trying to delete the Inference Node {e}')
         return jsonify({'Error': f'There has been an error while trying to delete the Inference Node {e}'})
     
-# -----------------------------------------------------------
+# -------------------- Request Inference ---------------------
 
 @app.route('/inference', methods=['GET', 'POST'])
 def add_inference():
     waiter_inference.close()
 
     content = request.json
-
+    print(content)
+    data_model = {'data' : content['data']}
+    print(data_model)
     global inference_data
-    inference_data = None
 
-    data = json.dumps(content['data'])
+    data = json.dumps(data_model)
 
     inference = InferenceDataType(data)
 
@@ -708,6 +836,12 @@ def add_inference():
     else:
         print('Inference received.')
         return jsonify(inference_data)
+    
+##############################################################
+###                      FIWARE NODE                       ###
+##############################################################
+
+# ------------------ Create Fiware node ---------------------
 
 @app.route('/context_broker/fiware', methods=['GET', 'POST'])
 def create_fiware_node():
@@ -738,7 +872,9 @@ def create_fiware_node():
         fiware_run.join()
         print(f'There has been an error while trying to start the Fiware Node {e}')
         return jsonify({'Error': f'There has been an error while trying to start the Fiware Node {e}'})
-
+    
+# --------------- Post data to Context Broker ----------------
+    
 @app.route('/context_broker/data', methods=['GET', 'POST'])
 def add_data():
     content = request.json
@@ -746,11 +882,13 @@ def add_data():
     global fiware_node
     
     try:
-        fiware_node.post_data(content['data'],default_values.TIMEOUT_POST_DATA)
+        fiware_node.post_data(content, default_values.TIMEOUT_POST_DATA)
         return jsonify({'message': 'OK'})
     except Exception as e:
         print(f'Failed to post data: {e}')
         return jsonify({'Error': f'Failed to post data {e}'})
+    
+# ------------ Get inference from Context Broker -------------
 
 @app.route('/context_broker/solution', methods=['GET', 'POST'])
 def get_solution():
@@ -762,6 +900,12 @@ def get_solution():
 
     return jsonify(solution)
 
+##############################################################
+###                       AGENT NODE                       ###
+##############################################################
+
+######################### Client Node ########################
+
 # -------------------- Create client node --------------------
 
 @app.route('/client_node', methods=['GET', 'POST'])
@@ -769,19 +913,18 @@ def create_client_node():
     client_node_content = request.json # we need to get the name, commection adress and domain from the aml dashboard user
     global client_node
 
-    if client_node_content['Transport Protocol'] == 'UDP' or client_node_content['Transport Protocol'] == 'udp':
+    if client_node_content['Transport Protocol'] == 'UDP':
         transport_protocol = TransportProtocol_udp
-    elif client_node_content['Transport Protocol'] == 'TCP' or client_node_content['Transport Protocol'] == 'tcp':
+    elif client_node_content['Transport Protocol'] == 'TCP':
         transport_protocol = TransportProtocol_tcp
     else:
         return jsonify({'Error': 'Transport Protocol not supported'})
-
     try:
         
         adress = Address(
-            ip = client_node_content['IP Address'],
-            port = client_node_content['Address Port'],
-            external_port = client_node_content['External Address Port'],
+            ip = client_node_content['Server IP Address'],
+            port = client_node_content['Server Address Port'],
+            external_port = client_node_content['Server Address Port'],
             transport_protocol = transport_protocol
         )
 
@@ -806,6 +949,8 @@ def stop_client_node():
     except Exception as e:
         print(f'There has been an error while trying to stop the Client Node {e}')
         return jsonify({'Error': f'There has been an error while trying to stop the Client Node {e}'})
+    
+######################### Server Node ########################
 
 # -------------------- Create server node --------------------
 
@@ -824,9 +969,9 @@ def create_server_node():
     try:
         print(server_node_content)
         adress = Address(
-            ip = server_node_content['IP Address'],
-            port = server_node_content['Address Port'],
-            external_port = server_node_content['External Address Port'],
+            ip = server_node_content['Server IP Address'],
+            port = server_node_content['Server Address Port'],
+            external_port = server_node_content['Server Address Port'],
             transport_protocol = transport_protocol
         )
 
@@ -852,6 +997,8 @@ def stop_server_node():
     except Exception as e:
         print(f'There has been an error while trying to stop the Server Node {e}')
         return jsonify({'Error': f'There has been an error while trying to stop the Server Node {e}'})
+    
+####################### Repeater Node #######################
 
 # ------------------- Create repeater node ------------------
 
@@ -869,7 +1016,7 @@ def create_repeater_node():
         adress = Address(
             ip = repeater_node_content['IP Address'],
             port = repeater_node_content['Address Port'],
-            external_port = repeater_node_content['External Address Port'],
+            external_port = repeater_node_content['Address Port'],
             transport_protocol = transport_protocol
         )
 

@@ -8,6 +8,8 @@ import aml_engine
 from aml_engine import amlSimpleLibrary as sc
 from aml_engine import amlAuxiliaryLibrary as ql
 
+from process_aml_model_results import load_model, create_atom_from_json
+
 from aml_engine.aml_fast.amlFastBitarrays import bitarray
 from aml_engine.amldl import (
     load_embedding,
@@ -38,7 +40,6 @@ def load_aml_structures(constant_manager, lst_atoms, o):
         # We do not really use others in other places..
         if int_const not in set_relevant:
             continue
-
         lst_atoms_in_const = []
         for atom in lst_atoms:
             if int_const in atom.ucs:
@@ -176,7 +177,8 @@ def batchLearning(
     examples,
     counterExamples,
     params,
-    args_params
+    args_params,
+    uploaded_atomization = False
 ):
     cOrange = "\u001b[33m"
     cGreen = "\u001b[36m"
@@ -197,6 +199,13 @@ def batchLearning(
     bHandler = batchHandler(
         batchLearner, pBatchSize, maxValP, nBatchSize, maxValN, balance
     )
+    
+    if uploaded_atomization:
+        # Load the atomization
+        file_name = (os.listdir(f"files_uploaded/")[0]).split('.')[0]
+        batchLearner.lastUnionModel = load_model(f"files_uploaded/{file_name}")
+
+        
     for i in range(params.n_iter_max):
         pBatchSize, nBatchSize = bHandler.getBatchSizes()
 
@@ -265,7 +274,7 @@ def batchLearning(
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test, y_test, arr_feat_range, n_iter_max):
+def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test, y_test, arr_feat_range, n_iter_max, uploaded_atomization = False):
     random.seed(RANSEED)
     sys.setrecursionlimit(100000000)
 
@@ -367,5 +376,6 @@ def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test,
         n,
         params,
         args_params,
+        uploaded_atomization
     )
     return res
