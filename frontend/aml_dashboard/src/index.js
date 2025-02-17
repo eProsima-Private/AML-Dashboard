@@ -949,6 +949,7 @@ upload_data.$images.subscribe( async (img) => {
 // STATUS
 // -----------------------------------------------------------
 
+const url_health_amlip = "http://localhost:5000/health-check/amlip";
 // Define data store using localStorage
 export const store2 = dataStore('localStorage');
 // Create dataset named 'aml-ip state' using the defined store2
@@ -962,7 +963,31 @@ export const tst = datasetTable(ts, [
 
 // Setup and clear the dataset
 await ts.setup();
-await ts.clear();
+
+if (sessionStorage.getItem('dashboard-started') === null) {
+  const content = {sessionStore: 'empty'};
+  fetch(url_health_amlip, {
+    method: "POST", // *GET, POST, PUT, DELETE, etc.
+    mode: "cors", // no-cors, *cors, same-origin
+    cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+    credentials: "omit", // include, *same-origin, omit
+    headers: {
+      "Content-Type": "application/json",
+    },
+    redirect: "follow", // manual, *follow, error
+    referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+    body: JSON.stringify(content), // body data type must match "Content-Type" header
+  })
+  .then(response => response.json())
+  .then(async json => {
+    if (json.Error) {
+      throwError(new Error(json.Error));
+    }
+    else {
+      ts.clear();
+    }
+  });
+}
 
 // Define the URL for fetching status
 const url_status = "http://localhost:5000/status";
@@ -1043,6 +1068,39 @@ function fetchStatus() {
 }
 // Fetch the status every 1 seconds
 setInterval(fetchStatus, 1000); // 1000 milliseconds = 1 seconds
+
+// -----------------------------------------------------------
+// localStorage Management
+// -----------------------------------------------------------
+
+const url_health = "http://localhost:5000/health-check";
+async  function isBackendUp(){
+  try {
+    const response = await fetch(url_health, { method: 'GET' });
+    return response.ok;
+} catch (error) {
+    return false; // Backend is down
+}
+}
+
+async function handleBackendDown() {
+  const backendIsUp = await isBackendUp();
+  
+  if (!backendIsUp) {
+      console.warn("Backend server is down.");
+      
+      await ts.clear();
+
+  } else {
+
+      fetchStatus();
+      console.log("Backend server is up.");
+  }
+}
+
+setInterval(handleBackendDown, 1000); // Check every 1 second
+
+sessionStorage.setItem('dashboard-started', '{}');
 
 // -----------------------------------------------------------
 // AML-IP Management

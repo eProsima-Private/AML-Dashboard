@@ -42,7 +42,7 @@ stop_delete_computing.title = 'Stop and Delete Computing Node';
 
 const comp_stop_params = {
   parameters: {
-    'Node ID': new Stream('AsyncComputingNode.95.1d.0d.e6', true),
+    'Node ID': new Stream('AsyncComputingNode.95.1d.0d.e6', false),
   },
 };
 
@@ -240,7 +240,7 @@ create_sender.$click.subscribe( async () => {
       sender_node_status.$value.set('<p>Not Created </p> ');
       throwError(new Error(json.Error));
     } else if (json.message=='OK') {
-      sender_node_status.$value.set('<h2>Created !</h2>');
+      sender_node_status.$value.set('<h2>Created and running!</h2>');
       create_sender.$disabled.set(true);
     }
   });
@@ -299,7 +299,7 @@ const url_create_inference = "http://localhost:5000/inference_node/";
 
 const inference_stop_params = {
   parameters: {
-    'Node ID': new Stream('AsyncInferenceNode.95.1d.0d.e6', true),
+    'Node ID': new Stream('AsyncInferenceNode.95.1d.0d.e6', false),
   },
 };
 
@@ -331,7 +331,7 @@ create_inference.$click.subscribe( async () => {
       inference_node_status.$value.set('<p>Not Created </p> ');
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
-      inference_node_status.$value.set('<h2>Created !</h2>'); 
+      inference_node_status.$value.set('<h2>Created and running !</h2>'); 
     }
 
   });
@@ -340,7 +340,7 @@ create_inference.$click.subscribe( async () => {
 // ---------------------Stop Inference Node--------------------
 
 const inference_stop_node = modelParameters(inference_stop_params);
-inference_stop_node.title = 'Indicate the ID of Inference Node to stop:';
+inference_stop_node.title = 'Indicate the ID of Inference Node to manage:';
 
 stop_inference.$click.subscribe( async () => {
 
@@ -488,7 +488,9 @@ create_client_node.$click.subscribe( async () => {
   for (let param in client_node_params.parameters) {
     parameters[param] = client_node_params.parameters[param].value;
   }
+  parameters['Name'] = client_node_params.parameters['Name'].value + '_Client';
   parameters['Transport Protocol'] = transport_protocol.$value.get();
+  console.log(parameters);
 
   fetch(url_create_client_node,  {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
@@ -510,7 +512,7 @@ create_client_node.$click.subscribe( async () => {
       client_node_status.$value.set('<p>Not Created </p> ');
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
-      client_node_status.$value.set('<h2>Created !</h2>'); 
+      client_node_status.$value.set('<h2>Created and running !</h2>'); 
       create_client_node.$disabled.set(true);
       delete_client_node.$disabled.set(false);
     }
@@ -588,6 +590,7 @@ create_server_node.$click.subscribe( async () => {
   for (let param in server_node_params.parameters) {
     parameters[param] = server_node_params.parameters[param].value;
   }
+  parameters['Name'] = server_node_params.parameters['Name'].value + '_Server';
   parameters['Transport Protocol'] = transport_protocol.$value.get();
   fetch(url_create_server_node,  {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
@@ -609,7 +612,7 @@ create_server_node.$click.subscribe( async () => {
       server_node_status.$value.set('<p>Not Created </p> ');
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
-      server_node_status.$value.set('<h2>Created !</h2>');
+      server_node_status.$value.set('<h2>Created and running !</h2>');
       create_server_node.$disabled.set(true);
       delete_server_node.$disabled.set(false);
     }
@@ -687,6 +690,7 @@ create_repeater_node.$click.subscribe( async () => {
   for (let param in repeater_node_params.parameters) {
     parameters[param] = repeater_node_params.parameters[param].value;
   }
+  parameters['Name'] = repeater_node_params.parameters['Name'].value + '_Repeater';
   parameters['Transport Protocol'] = transport_protocol.$value.get();
   fetch(url_create_repeater_node,  {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
@@ -708,7 +712,7 @@ create_repeater_node.$click.subscribe( async () => {
       repeater_node_status.$value.set('<p>Not Created </p> ');
       throwError(new Error(json.Error));  
     } else if (json.message=='OK') {
-      repeater_node_status.$value.set('<h2>Created !</h2>');
+      repeater_node_status.$value.set('<h2>Created and running !</h2>');
       create_repeater_node.$disabled.set(true);
       delete_repeater_node.$disabled.set(false);
     }
@@ -750,6 +754,93 @@ delete_repeater_node.$click.subscribe( async () => {
   });
 });
 
+
+// -----------------------------------------------------------
+// HEALTH CHECK
+// -----------------------------------------------------------
+
+const url_health = "http://localhost:5000/health-check";
+async  function isBackendUp(){
+  try {
+    const response = await fetch(url_health, { method: 'GET' });
+    return response.ok;
+} catch (error) {
+    return false; // Backend is down
+}
+}
+
+function set_nodes_status(node, status){
+
+  if (status === 'running') {
+    node.$value.set('<h2>Created and running !</h2>');
+  } else if (status === 'stopped'){
+    node.$value.set('<h2>Stopped !</h2>');
+  } else if (status === 'dropped'){
+    node.$value.set('<h2>Deleted !</h2>');
+  } else {
+    node.$value.set('<p>Not Created </p> ');
+  }
+}
+
+async function get_nodes_status(){
+  const storedNodes = localStorage.getItem('instances-aml-ip-state');
+  const dataset = JSON.parse(storedNodes);
+  if (Object.keys(storedNodes).length >= 2){
+    for (let node in dataset){
+      let status = dataset[node].State;
+      let kind = dataset[node].Kind;
+      let id = dataset[node].ID;
+
+      if (kind === 'computing'){
+        set_nodes_status(computing_node_status, status);
+      } else if (kind === 'inference'){
+        set_nodes_status(inference_node_status, status);
+      }
+      else if (kind === 'model_sender'){
+        set_nodes_status(sender_node_status, status);
+      }
+      else if (kind === 'agent'){
+        if (id.includes('Client')){
+          set_nodes_status(client_node_status, status);
+        } else if (id.includes('Server')){
+          set_nodes_status(server_node_status, status);
+        } else if (id.includes('Repeater')){
+          set_nodes_status(repeater_node_status, status);
+        }
+      }
+
+    }
+  }
+}
+
+async function handleBackendDown() {
+  const backendIsUp = await isBackendUp();
+  
+  if (!backendIsUp) {
+      console.warn("Backend server is down.");
+    
+      computing_node_status.$value.set('<p>Not Created </p> ');
+      inference_node_status.$value.set('<p>Not Created </p> ');
+      sender_node_status.$value.set('<p>Not Created </p> ');
+      client_node_status.$value.set('<p>Not Created </p> ');
+      server_node_status.$value.set('<p>Not Created </p> ');
+      repeater_node_status.$value.set('<p>Not Created </p> ');
+      create_sender.$disabled.set(false);
+      create_client_node.$disabled.set(false);
+      create_server_node.$disabled.set(false);
+      create_repeater_node.$disabled.set(false);
+      delete_client_node.$disabled.set(false);
+      delete_server_node.$disabled.set(false);
+      delete_repeater_node.$disabled.set(false);
+
+  } else {
+
+      console.log("Backend server is up.");
+  }
+}
+
+get_nodes_status();
+setInterval(handleBackendDown, 1000); // Check every 1 second
 // -----------------------------------------------------------
 // DASHBOARDS
 // -----------------------------------------------------------
