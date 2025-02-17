@@ -16,7 +16,7 @@ import json
 import os
 import signal
 
-from amlip_py.node.AsyncInferenceNode import AsyncInferenceNode, InferenceReplier
+from amlip_py.node.AsyncInferenceNode import AsyncInferenceNode, InferenceReplierLambda
 from amlip_py.types.InferenceSolutionDataType import InferenceSolutionDataType
 
 from aml_model_processing import process_model_data
@@ -24,16 +24,59 @@ from utils import use_most_recent_file
 
 # Domain ID
 DOMAIN_ID = 166
+class InferenceNode():
 
-# Custom inference replier
-class CustomInferenceReplier(InferenceReplier):
+    def __init__(self):
 
+    # Get the path to the Downloads directory
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        # Create the full path to the most recent file
+        training_path=use_most_recent_file(downloads_path, "training_set_")
+        model_path=use_most_recent_file(downloads_path, "model_")
+        try:
+            with open(model_path, 'r') as file:
+                json = file.read()
+        except Exception as e:
+            print(f'Error reading model file: {e}')
+            exit(1)
+        try:
+            with open(training_path, 'r') as file:
+                training_set = file.read()
+        except Exception as e:
+            print(f'Error reading training set file: {e}')
+            exit(1)
+        global aml_model_predict
+        aml_model_predict = process_model_data(json, training_set)
+        ##
+
+        print('Starting Async Inference Node Py execution. Creating Node...')
+        self.inference_node = AsyncInferenceNode(
+            'PyTestAsyncInferenceNode',
+            listener=InferenceReplierLambda(self.process_inference),
+            domain=DOMAIN_ID)
+        print(f'Node created: {self.inference_node.get_id()}. '
+          'Already processing inferences. Waiting SIGINT (C^)...')
+        
+    def run(self):
+
+        self.inference_node.run()
+    
+    def stop(self):
+        self.inference_node.stop()
+        print('Stopping Async Inference Node Py execution.')
+    
+    def delete(self):
+        del self.inference_node
+        print ('Finishing Async Inference Node Py execution.')
+    
+    def get_id(self):
+        return self.inference_node.get_id()
+    
     def process_inference(
-            self,
-            inference,
-            task_id,
-            client_id):
-
+        self,
+        inference,
+        task_id,
+        client_id):
         data = json.loads(inference.to_string())
 
         global aml_model_predict
@@ -49,56 +92,21 @@ class CustomInferenceReplier(InferenceReplier):
 def main():
     """Execute main routine."""
 
-    # Get the path to the Downloads directory
-    downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
-
-    # Create the full path to the most recent file
-    training_path=use_most_recent_file(downloads_path, "training_set_")
-    model_path=use_most_recent_file(downloads_path, "model_")
-
-    try:
-        with open(model_path, 'r') as file:
-            json = file.read()
-    except Exception as e:
-        print(f'Error reading model file: {e}')
-        exit(1)
-
-    try:
-        with open(training_path, 'r') as file:
-            training_set = file.read()
-    except Exception as e:
-        print(f'Error reading training set file: {e}')
-        exit(1)
-
-
-    global aml_model_predict
-    aml_model_predict = process_model_data(json, training_set)
-    ##
-
     # Create node
-    print('Starting Async Inference Node Py execution. Creating Node...')
-    inference_node = AsyncInferenceNode(
-        'PyTestAsyncInferenceNode',
-        listener=CustomInferenceReplier(),
-        domain=DOMAIN_ID)
-
-    # Create job data
-    print(f'Node created: {inference_node.get_id()}. '
-          'Already processing inferences. Waiting SIGINT (C^)...')
+    inference_node = InferenceNode()
 
     # Start node
     inference_node.run()
 
     # Wait for signal
     def handler(signum, frame):
-        pass
+       pass
     signal.signal(signal.SIGINT, handler)
     signal.pause()
 
     inference_node.stop()
 
     # Stop node
-    print('Finishing Async Inference Node Py execution.')
 
 
 # Call main in program execution
