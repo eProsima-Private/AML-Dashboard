@@ -62,9 +62,7 @@ RUN source activate aml_env && \
 
 # Clone backend source code
 WORKDIR /
-RUN git clone https://github.com/eProsima-Private/AML-Dashboard.git && \
-    cd /AML-Dashboard && \
-    git checkout fix/manage_data_persistence_in_browser
+RUN git clone https://github.com/eProsima-Private/AML-Dashboard.git
 
 WORKDIR /AML-Dashboard/backend
 

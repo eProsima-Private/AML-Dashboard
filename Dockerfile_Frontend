@@ -39,9 +39,7 @@ RUN apt update && \
 # Copy frontend source code from host
 WORKDIR /
 RUN git clone https://github.com/eProsima-Private/AML-Dashboard.git && \
-    cd AML-Dashboard && \
-    git checkout fix/manage_data_persistence_in_browser && \
-    cd frontend/aml_dashboard && \
+    cd AML-Dashboard/frontend/aml_dashboard && \
     npm i && \
     npm i @tensorflow/tfjs
 
