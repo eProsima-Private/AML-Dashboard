@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from aml_engine import amlSimpleLibrary as sc
-from aml_engine import amlAuxiliaryLibrary as ql
-from aml_engine.aml_fast.amlFastBitarrays import bitarray
+import aml
+from aml.aml_fast.amlFastBitarrays import bitarray
 import os
 import json
 
@@ -22,7 +21,7 @@ from utils import use_most_recent_file
 
 def load_model(file_path):
     # Load the atomization
-    cmanager, batchLearner = ql.loadAtomizationFromFileUsingBitarrays(file_path)
+    cmanager, batchLearner = aml.loadAtomizationFromFileUsingBitarrays(file_path)
     return cmanager, batchLearner
 
 def map_atomization_to_dict(cmanager, batchLearner, model_name):
@@ -38,9 +37,9 @@ def map_atomization_to_dict(cmanager, batchLearner, model_name):
     json_dict['model_name'] = model_name
     json_dict['model_size'] = batchLearner.__sizeof__()
     for k, v in cmanager.getReversedNameDictionary().items():
-        json_dict['vTerm: ' + v] = int(k[1:])
+        json_dict['vTerm: ' + v] = int(k)
 
-    for int_const in cmanager.getConstantSet():
+    for int_const in cmanager.embeddingConstants:
         list_atomization = []
         map_atomization = {}
         for atom in batchLearner:
@@ -71,6 +70,6 @@ def create_atom_from_json(json_info):
                 atom_epoch = atom['atom_epoch']
                 atom_gen = atom['atom_gen']
                 bitarray_atom = bitarray(atom['atom_ucs'])
-                new_atom = sc.atom(atom_epoch, atom_gen, bitarray_atom)
+                new_atom = aml.Atom(atom_epoch, atom_gen, bitarray_atom)
                 atomization.append(new_atom)
     return atomization

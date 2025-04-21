@@ -3,15 +3,12 @@ import sys
 import json
 import os
 
-import aml_engine
-
-from aml_engine import amlSimpleLibrary as sc
-from aml_engine import amlAuxiliaryLibrary as ql
+import aml
 
 from process_aml_model_results import load_model, create_atom_from_json
 
-from aml_engine.aml_fast.amlFastBitarrays import bitarray
-from aml_engine.amldl import (
+from aml.aml_fast.amlFastBitarrays import bitarray
+from aml.amldl import (
     load_embedding,
     F,
 )
@@ -30,13 +27,13 @@ cReset = "\u001b[0m"
 def load_aml_structures(constant_manager, lst_atoms, o):
     map_name_to_const = {}
     for k, v in constant_manager.getReversedNameDictionary().items():
-        # @803 Black[19]
-        map_name_to_const[v] = int(k[1:])
+        # 803 Black[19]
+        map_name_to_const[v] = int(k)
 
 
     set_relevant = { map_name_to_const['O['+str(o)+']'] }
     map_const_to_atoms = {}
-    for int_const in constant_manager.getConstantSet():
+    for int_const in constant_manager.embeddingConstants:
         # We do not really use others in other places..
         if int_const not in set_relevant:
             continue
@@ -143,10 +140,10 @@ class batchHandler:
 
         print("<Select for storing...", end="", flush=True)
         target = alg.atomization
-        las = sc.calculateLowerAtomicSegment(
-            target, alg.cmanager.getConstantSet(), True
+        las = aml.calculateLowerAtomicSegment(
+            target, alg.cmanager.embeddingConstants, True
         )
-        trainSpace = sc.spaceClass()
+        trainSpace = aml.termSpace()
         for rel in pbatch:
             if rel.region != 0:
                 rel.wL = trainSpace.add(rel.L)
@@ -217,14 +214,14 @@ def batchLearning(
         ]
         ex += getExamples(counterExamples[1], nBatchSize)
         for L, H, region in ex:
-            nRel = sc.duple(L, H, positive=False, generation=alg.generation, region=region)
+            nRel = aml.Duple(L, H, positive=False, generation=alg.generation, region=region)
             nbatch.append(nRel)
 
         pbatch = []
         ex = [(bitarray(e.rl_L.s), bitarray(e.rl_H.s), e.region) for e in examples[0]]
         ex += getExamples(examples[1], pBatchSize)
         for L, H, region in ex:
-            pRel = sc.duple(L, H, positive=True, generation=alg.generation, region=region)
+            pRel = aml.Duple(L, H, positive=True, generation=alg.generation, region=region)
             pbatch.append(pRel)
         print(">")
 
@@ -238,7 +235,7 @@ def batchLearning(
 
         if i % SAVE_EVERY == 0:
             path_save_i = args_params["path_save_model"]
-            ql.saveAtomizationOnFileUsingBitarrays(
+            aml.saveAtomizationOnFileUsingBitarrays(
                 batchLearner.lastUnionModel,
                 batchLearner.model.cmanager,
                 f"{path_save_i}/sensors_{i}_{os.getpid()}",
@@ -278,7 +275,7 @@ def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test,
     random.seed(RANSEED)
     sys.setrecursionlimit(100000000)
 
-    alg = sc.model()
+    alg = aml.Model()
 
     # This can be read from the input file
     params = dict()
@@ -347,7 +344,7 @@ def train_class(out_class, n_classes, path_save_model, X_train, y_train, X_test,
 
     args_params = params
 
-    batchLearner = ql.batchLearner(alg)
+    batchLearner = aml.sparse_crossing_embedder(alg)
 
     params = trainingParameters()
     params.balance = 1

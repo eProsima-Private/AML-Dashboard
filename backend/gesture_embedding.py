@@ -1,6 +1,6 @@
 import numpy as np
 from tqdm import tqdm
-from aml_engine.amldl import (
+from aml.amldl import (
     ADD,
     CV,
     CMP,
