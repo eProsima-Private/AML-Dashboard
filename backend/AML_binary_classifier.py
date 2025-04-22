@@ -17,9 +17,8 @@ import math
 import numpy as np
 import os
 
-from aml_engine import amlSimpleLibrary as sc
-from aml_engine import amlAuxiliaryLibrary as ql
-from aml_engine.aml_fast.amlFastBitarrays import bitarray
+import aml
+from aml.aml_fast.amlFastBitarrays import bitarray
 
 from process_aml_model_results import create_atom_from_json, load_model
 
@@ -69,7 +68,7 @@ def mnistDigit(targetDigit, size, loader):
     # The complement parameter is set to False to get the target class
     d, label, i = loader.get_next_digit_unpacked(targetDigit, complement = False)
     result = digitToConstants(d, size)
-    return sc.amlset(result)
+    return aml.amlset(result)
 
 def mnistOtherDigit(targetDigit, size, loader):
     """
@@ -82,7 +81,7 @@ def mnistOtherDigit(targetDigit, size, loader):
     # The complement parameter is set to True to get the rest of the classes
     d, label, i = loader.get_next_digit_unpacked(targetDigit, complement = True)
     result = digitToConstants(d, size)
-    return sc.amlset(result)
+    return aml.amlset(result)
 
 def train_alma(model_type ,images, labels, target_digit=0, iterations=10, batch_size=100, uploaded_atomization=False):
     """
@@ -110,15 +109,15 @@ def train_alma(model_type ,images, labels, target_digit=0, iterations=10, batch_
     pBatchSize = batch_size # batch size for the target class (positive examples)
     nBatchSize =batch_size * balance # batch size for the rest of the classes (negative examples)
 
-    model = sc.model()
+    model = aml.Model()
     for i in embedding_constants:
         c = model.cmanager.setNewConstantIndex()
 
     vIndex = model.cmanager.setNewConstantIndexWithName("v")
-    vTerm = sc.amlset([vIndex])
+    vTerm = aml.amlset([vIndex])
 
     # Initialize batch training
-    batchLearner = ql.batchLearner(model)
+    batchLearner = aml.sparse_crossing_embedder(model)
     batchLearner.params.useReduceIndicators = True
     batchLearner.params.byQuotient = False
     batchLearner.params.staticConstants = True
@@ -147,7 +146,7 @@ def train_alma(model_type ,images, labels, target_digit=0, iterations=10, batch_
             generation = model.generation
             region = 1
 
-            nRel = sc.duple(vTerm, counterExampleTerm, is_positive_duple, generation, region)  # fmt:skip
+            nRel = aml.Duple(vTerm, counterExampleTerm, is_positive_duple, generation, region)  # fmt:skip
             nbatch.append(nRel)
 
         pbatch = []
@@ -158,7 +157,7 @@ def train_alma(model_type ,images, labels, target_digit=0, iterations=10, batch_
             generation = model.generation
             region = 1
 
-            pRel = sc.duple(vTerm, exampleTerm, is_positive_duple, generation, region)
+            pRel = aml.Duple(vTerm, exampleTerm, is_positive_duple, generation, region)
             pbatch.append(pRel)
         # Training function.
         # It is somewhat parallel to one backpropagation step, but instead of modifying weight
@@ -180,7 +179,7 @@ def train_alma(model_type ,images, labels, target_digit=0, iterations=10, batch_
     if not os.path.exists(f"RESULTS/{model_type}"):
         os.makedirs(f"RESULTS/{model_type}")
 
-    ql.saveAtomizationOnFileUsingBitarrays(
+    aml.saveAtomizationOnFileUsingBitarrays(
         batchLearner.lastUnionModel,
         model.cmanager,
         f"RESULTS/{model_type}/{model_type}_{targetDigit}",
@@ -188,7 +187,7 @@ def train_alma(model_type ,images, labels, target_digit=0, iterations=10, batch_
 
     print(f"{cGreen}Union model size:{cReset} {len(batchLearner.unionModel)}")
     print(f"{cGreen}Size spectrum:{cReset}")
-    sc.printLSpectrum(batchLearner.unionModel)
+    aml.printLSpectrum(batchLearner.unionModel)
 
     print(f"{cGreen}Some random atoms:{cReset}")
     import random
@@ -214,10 +213,10 @@ def load_aml_structures(constant_manager, lst_atoms, model_name):
     json_dict['model_name'] = model_name
     json_dict['model_size'] = lst_atoms.__sizeof__()
     for k, v in constant_manager.getReversedNameDictionary().items():
-        map_name_to_const[v] = int(k[1:])
+        map_name_to_const[v] = int(k)
         json_dict['vTerm'] = list(map_name_to_const.values())
 
-    for int_const in constant_manager.getConstantSet():
+    for int_const in constant_manager.embeddingConstants:
         list_atomization = []
         if int_const in map_name_to_const.values():
             for atom in lst_atoms:
@@ -272,8 +271,8 @@ def calculate_misses(training_set, json_file, target_digit='positive'):
     vTerm = bitarray(json_model['vTerm'][0])
 
     def computeMisses(leftTerm, rightTerm, atomization):
-        atomsInLeftTerm = sc.atomsIn(atomization, leftTerm)
-        atomsMissingInRight = sc.atomsNotIn(atomsInLeftTerm, rightTerm)
+        atomsInLeftTerm = aml.atomsIn(atomization, leftTerm)
+        atomsMissingInRight = aml.atomsNotIn(atomsInLeftTerm, rightTerm)
         return atomsMissingInRight
 
     test_loader = imagesGenerator(test_images, test_labels)
@@ -293,7 +292,7 @@ def calculate_misses(training_set, json_file, target_digit='positive'):
         :param size: The size of the image.
         :return: misses_image: The misses for the image.
         """
-        example = sc.amlset(digitToConstants(image, size))
+        example = aml.amlset(digitToConstants(image, size))
         misses_example =[computeMisses(vTerm, example, atoms)]
         misses_image = [len(miss) for miss in misses_example]
         return misses_image

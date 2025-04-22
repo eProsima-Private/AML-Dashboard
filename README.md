@@ -30,6 +30,8 @@ Create a virtual environment and install Python dependencies.
 
 * Note: pipx can also be used for users who prefer that as an alternative for managing Python packages in isolated environments.
 
+Make sure to properly install the AML Engine on your system by carefully following the instructions provided [here](https://github.com/Algebraic-AI/Open-AML-Engine). 
+
 Install **npm** (8.5.1) and **nodejs** (v12.22.9) using the following commands:
 
 ```bash
@@ -79,12 +81,6 @@ wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/docke
 
 ```bash
 docker compose up -d
-```
-
-4. After the containers are built move your ``aml_engine``folder from your machine to the docker backend.
-
-```bash
-docker cp <route_to_aml_engine/aml_engine> aml-dashboard-amldashboard-backend-1:/AML-Dashboard/backend/
 ```
 
 The AML Dashboard will be available at [http://localhost:5173](http://localhost:5173).
