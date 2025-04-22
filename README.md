@@ -83,12 +83,6 @@ wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/docke
 docker compose up -d
 ```
 
-4. After the containers are built move your ``aml_engine``folder from your machine to the docker backend.
-
-```bash
-docker cp <route_to_aml_engine/aml_engine> aml-dashboard-amldashboard-backend-1:/AML-Dashboard/backend/
-```
-
 The AML Dashboard will be available at [http://localhost:5173](http://localhost:5173).
 
 5. To stop the services, execute the following command:
