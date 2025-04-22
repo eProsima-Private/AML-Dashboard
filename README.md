@@ -1,4 +1,22 @@
-# AML-Dashboard
+[![AML Dashboard](.figures/banner_aml_dashboard.png)](https://alma-ai.eu/)
+
+<br>
+
+<div class="menu" align="center">
+    <strong>
+        <a href="https://github.com/eProsima-Private/AML-Dashboard?tab=readme-ov-file#installation">Download</a>
+        <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+        <a href="https://aml-tools.readthedocs.io/en/latest/rst/amldashboard/specification/amldashboard.html">Docs</a>
+        <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+        <a href="https://alma-ai.eu/showroom/news">News</a>
+        <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+        <a href="https://x.com/eProsima">X</a>
+        <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+        <a href="mailto:info@eprosima.com">Contact Us</a>
+    </strong>
+</div>
+
+<br><br>
 
 ## Installation
 
@@ -16,12 +34,12 @@ If **AML-IP** is not already installed in your system, follow one of the methods
 
 ### Requirements
 
-Before proceeding further, ensure that you have all requirements installed in your system. 
-Firstly, some Python dependencies are required. This version of the AML-Dashboard uses `Python3.11`, installed in a virtual environment to install such dependencies, thus avoiding polluting the user's installation. 
+Before proceeding further, ensure you have all the requirements installed in your system.
+Firstly, some Python dependencies are required. This version of the AML-Dashboard uses `Python3.11`, which is installed in a virtual environment to install such dependencies, thus avoiding polluting the user's installation.
 
 Create a virtual environment and install Python dependencies.
 
-```bash   
+```bash
     python3 -m venv aml-ip-venv
     source aml-ip-venv/bin/activate
     wget https://raw.githubusercontent.com/eProsima-Private/AML-Dashboard/main/requirements.txt
@@ -30,7 +48,7 @@ Create a virtual environment and install Python dependencies.
 
 * Note: pipx can also be used for users who prefer that as an alternative for managing Python packages in isolated environments.
 
-Make sure to properly install the AML Engine on your system by carefully following the instructions provided [here](https://github.com/Algebraic-AI/Open-AML-Engine). 
+Make sure to properly install the AML Engine on your system by carefully following the instructions provided [here](https://github.com/Algebraic-AI/Open-AML-Engine).
 
 Install **npm** (8.5.1) and **nodejs** (v12.22.9) using the following commands:
 
@@ -325,3 +343,10 @@ The status tab automatically refreshes every second, ensuring you receive real-t
 <div align="center">
   <img src=".figures/aml-dashboard_status_nodes_created.png" width="750">
 </div>
+
+
+---
+
+<img src=".figures/eu_flag.jpg" alt="eu_flag" height="45" align="left" >
+
+This project (ALMA: Human Centric Algebraic Machine Learning) has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 952091.
