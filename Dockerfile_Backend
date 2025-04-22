@@ -66,7 +66,8 @@ RUN source activate aml_env && \
 WORKDIR /
 RUN git clone https://github.com/Algebraic-AI/Open-AML-Engine.git
 WORKDIR /Open-AML-Engine
-RUN cd aml/aml_fast && \
+RUN source activate aml_env && \
+    cd aml/aml_fast && \
     python build_amlFastLibrary.py && \
     cd ../.. && \
     python -m pip install -e .
